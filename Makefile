@@ -1,4 +1,4 @@
-IMAGE_NAME = marioaugustorama/devops-toos:v1
+IMAGE_NAME = marioaugustorama/devops-tools:latest
 
 run:
 	@docker run -it --rm -v "./config/kube:/tools/.kube" $(IMAGE_NAME)
