@@ -14,7 +14,7 @@ run:
 		-u $(id -u ):$(id -g) \
 		-v "$(PWD)/home:/tools" \
 		-e LOCAL_USER_ID=$(id -u) \
-    	-e LOCAL_GROUP_ID=$(id -g) \
+		-e LOCAL_GROUP_ID=$(id -g) \
 		$(IMAGE_NAME):$(VERSION) bash
 
 clean:
