@@ -1,4 +1,7 @@
-FROM debian:latest
+FROM ubuntu:latest
+
+ARG USER_ID
+ARG GROUP_ID
 
 USER root
 
@@ -17,6 +20,20 @@ RUN apt-get update && \
     vim \
     ansible && \
     rm -rf /var/lib/apt/lists/*
+
+# Remover o usuário ubuntu
+RUN userdel -r ubuntu
+
+# Verificar se o grupo com o GID especificado já existe
+RUN getent group devops || groupadd --gid ${GROUP_ID} devops
+
+# Criar um usuário devops dentro do contêiner com o userid do usuário local e pertencente ao grupo devops
+RUN useradd --gid ${GROUP_ID} --uid ${USER_ID} --create-home --home /tools --shell /bin/bash devops
+
+# Adicionar o usuário ao grupo sudo (opcional)
+RUN usermod -aG sudo devops
+
+RUN echo 'devops ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 # Instalação de ferramentas relacionadas ao Kubernetes
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
@@ -54,7 +71,26 @@ RUN curl -LO "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz" && \
     unzip vault_1.7.3_linux_amd64.zip && \
     install -o root -g root -m 0755 vault /usr/local/bin
 
+RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh && \
+    chmod +x /tmp/install-opentofu.sh && \
+    /tmp/install-opentofu.sh --install-method deb && \
+    curl -LO "https://dl.min.io/client/mc/release/linux-amd64/mc" && \
+    install -o root -g root -m 0755 mc /usr/local/bin
+
+COPY entrypoint.sh /tmp/entrypoint.sh
+
+RUN chmod +x /tmp/entrypoint.sh && \
+    mv /tmp/entrypoint.sh /entrypoint.sh
+
 # Remove os Downloads
 RUN rm -rf /tmp/*
 
+# Mapeia o diretório de trabalho localmente
+VOLUME /tools
+
+# Define o usuário padrão para o container
+USER devops
+
 WORKDIR /tools
+
+ENTRYPOINT [ "/entrypoint.sh" ]

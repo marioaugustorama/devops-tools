@@ -1,12 +1,33 @@
-IMAGE_NAME = marioaugustorama/devops-tools:latest
+IMAGE_NAME = marioaugustorama/devops-tools
+VERSION = v1.2
+LATEST_TAG = latest
+
+USER_ID := $(shell id -u)
+GROUP_ID := $(shell id -g)
 
 run:
-	@docker run -it --rm -v "./config/kube:/tools/.kube" $(IMAGE_NAME)
+	@if [ ! -d "home" ]; then \
+			mkdir -p home; \
+	fi
+
+	@docker run -it --tty --rm \
+		-u $(id -u ):$(id -g) \
+		-v "$(PWD)/home:/tools" \
+		-e LOCAL_USER_ID=$(id -u) \
+    	-e LOCAL_GROUP_ID=$(id -g) \
+		$(IMAGE_NAME):$(VERSION) bash
 
 clean:
-	@docker rmi marioaugustorama/devops-tools:latest
+	@docker rmi $(IMAGE_NAME):$(VERSION)
 
 build:
-	@docker build -t marioaugustorama/devops-tools:v1 .
+	@docker build --no-cache --build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) -t $(IMAGE_NAME):$(VERSION) .
 
-.PHONY: run
+tag-latest:
+	@docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):$(LATEST_TAG)
+
+push: build tag-latest
+	@docker push $(IMAGE_NAME):$(VERSION)
+	@docker push $(IMAGE_NAME):$(LATEST_TAG)
+
+.PHONY: run clean build tag-latest push
