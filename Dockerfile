@@ -18,6 +18,8 @@ RUN apt-get update && \
     unzip \
     file \
     vim \
+    mysql-client \
+    postgresql-client \
     ansible && \
     rm -rf /var/lib/apt/lists/*
 
