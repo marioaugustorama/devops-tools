@@ -18,6 +18,8 @@ RUN apt-get update && \
     unzip \
     file \
     vim \
+    groff \
+    mandoc \
     mysql-client \
     postgresql-client \
     ansible && \
