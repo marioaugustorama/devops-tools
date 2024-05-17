@@ -22,8 +22,9 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 4. **OpenTofu**
    - [OpenTofu](https://opentofu.org/): Uma ferramenta de automação para instalação e configuração de ferramentas.
 
-5. **AWS**
+5. **Providers**
    - [AWS Cli](https://aws.amazon.com/pt/cli/): Uma interface de linha de comando para AWS.
+   - [Digital Ocean Cli](https://docs.digitalocean.com/reference/doctl/): Uma interface de linha de comando para DigitalOcean.
 
 6. **Utilitários**
    - [Rclone](https://rclone.org/): Uma ferramenta para sincronização de arquivos.
