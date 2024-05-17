@@ -22,8 +22,10 @@ RUN apt-get update && \
     mandoc \
     mysql-client \
     postgresql-client \
+    python3-pip \
     ansible && \
     rm -rf /var/lib/apt/lists/*
+
 
 # Remover o usuário ubuntu
 RUN userdel -r ubuntu
@@ -65,6 +67,9 @@ RUN curl -LO "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz" && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
+    curl -LO https://github.com/digitalocean/doctl/releases/download/v1.104.0/doctl-1.104.0-linux-amd64.tar.gz && \
+    tar xzvf doctl-1.104.0-linux-amd64.tar.gz && \
+    install -o root -g root -m 0755 doctl /usr/local/bin && \
     curl -LO "https://downloads.rclone.org/v1.56.0/rclone-v1.56.0-linux-amd64.zip" && \
     unzip rclone-v1.56.0-linux-amd64.zip && \
     install -o root -g root -m 0755 rclone-v1.56.0-linux-amd64/rclone /usr/local/bin && \
