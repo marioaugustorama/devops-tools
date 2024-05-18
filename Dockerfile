@@ -88,8 +88,11 @@ RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opent
 
 COPY entrypoint.sh /tmp/entrypoint.sh
 
+COPY src/backup.py /tmp/backup.py
+
 RUN chmod +x /tmp/entrypoint.sh && \
-    mv /tmp/entrypoint.sh /entrypoint.sh
+    mv /tmp/entrypoint.sh /entrypoint.sh && \
+    install -o root -g root -m 0755 /tmp/backup.py /usr/local/bin/backup
 
 # Remove os Downloads
 RUN rm -rf /tmp/*
