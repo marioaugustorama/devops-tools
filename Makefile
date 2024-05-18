@@ -13,6 +13,7 @@ run:
 	@docker run -it --tty --rm \
 		-u $(id -u ):$(id -g) \
 		-v "$(PWD)/home:/tools" \
+		-v "$(PWD)/backup:/backup" \
 		-e LOCAL_USER_ID=$(id -u) \
 		-e LOCAL_GROUP_ID=$(id -g) \
 		$(IMAGE_NAME):$(VERSION) bash

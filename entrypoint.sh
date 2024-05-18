@@ -7,7 +7,7 @@ GROUP_ID=$(id -g)
 
 # Trocar para o usuário devops se não estiver rodando como root
 if [ "$(id -u)" -eq 0 ]; then
-    su devops "$0" "$@"
+    exec su devops "$0 $@"
     exit
 fi
 
@@ -17,5 +17,9 @@ if [ ! -d "/tools" ]; then
     chown $USER_ID:$GROUP_ID /tools
 fi
 
-# Executa o shell Bash
-exec "$@"
+# Se houver argumentos, execute-os como um comando
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+else
+    exec bash
+fi
