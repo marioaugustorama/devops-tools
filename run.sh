@@ -11,6 +11,10 @@ run() {
         mkdir -p home
     fi
 
+    if [ ! -d "backup" ]; then
+        mkdir -p backup
+    fi
+
     docker run -it --tty --rm \
         -u $USER_ID:$GROUP_ID \
         -v "$(pwd)/home:/tools" \
