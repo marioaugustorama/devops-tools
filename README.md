@@ -19,6 +19,7 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 3. **Ansible**
    - [Ansible](https://www.ansible.com/) 
    - [Ansible Galaxy](https://galaxy.ansible.com/ui/)
+
 4. **OpenTofu**
    - [OpenTofu](https://opentofu.org/): Uma ferramenta de automação para instalação e configuração de ferramentas.
 
@@ -46,3 +47,22 @@ Será feito o download e dado permissão de execução ao script.
 Será criado um diretório nomeado como **home**, onde todo seu histórico do shell, tal como arquivos de configuração criados pelos programas serão armazenados.
 
 Portanto o máximo de cuidado com esse diretório, recomendo até que seja um volume criptografado com o Luks, nas futuras versão já virá com o software que prepara esse ambiente automaticamente.
+
+### [Scripts](#helpers)
+
+Scripts adicionados a imagem para tarefas corriqueiras.
+
+1. Backup 
+
+Scripts para backup do profile:
+
+Execução:
+
+A partir do Host:
+
+```
+./run.sh backup
+```
+
+Vai gerar um backup com data e hora da execução, permitindo assim salvar seus dados e configurações gerados a partir do container.
+
