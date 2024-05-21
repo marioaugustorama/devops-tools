@@ -68,6 +68,9 @@ RUN curl -LO "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz" && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
+    curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_linux_amd64.tar.gz" && \
+    tar xzvf eksctl_linux_amd64.tar.gz && \
+    install -o root -g root -m 0755 eksctl /usr/local/bin && \
     curl -LO https://github.com/digitalocean/doctl/releases/download/v1.104.0/doctl-1.104.0-linux-amd64.tar.gz && \
     tar xzvf doctl-1.104.0-linux-amd64.tar.gz && \
     install -o root -g root -m 0755 doctl /usr/local/bin && \
