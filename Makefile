@@ -1,5 +1,5 @@
 IMAGE_NAME = marioaugustorama/devops-tools
-VERSION = v1.7
+VERSION = v1.8
 LATEST_TAG = latest
 
 USER_ID := $(shell id -u)
@@ -27,7 +27,7 @@ build:
 tag-latest:
 	@docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):$(LATEST_TAG)
 
-push: build tag-latest
+push: tag-latest
 	@docker push $(IMAGE_NAME):$(VERSION)
 	@docker push $(IMAGE_NAME):$(LATEST_TAG)
 
