@@ -11,6 +11,7 @@ RUN apt-get update && \
     iputils-ping \
     traceroute \
     telnet \
+    ipcalc \
     tmux \
     mtr \
     jq \
