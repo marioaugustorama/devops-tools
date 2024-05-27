@@ -2,6 +2,7 @@
 
 IMAGE_NAME="marioaugustorama/devops-tools"
 LATEST_TAG="latest"
+PORTS="30000:31000"
 
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
@@ -37,6 +38,7 @@ run() {
         -v "$(pwd)/backup:/backup" \
         -e LOCAL_USER_ID=$USER_ID \
         -e LOCAL_GROUP_ID=$GROUP_ID \
+	-p $PORTS \
         $IMAGE_NAME:$LATEST_TAG "$@"
 }
 
