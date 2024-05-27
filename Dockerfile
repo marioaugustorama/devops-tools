@@ -11,6 +11,7 @@ RUN apt-get update && \
     iputils-ping \
     traceroute \
     telnet \
+    whois \
     ipcalc \
     tmux \
     mtr \
