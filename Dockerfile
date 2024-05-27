@@ -9,6 +9,8 @@ RUN apt-get update && \
     apt-get install -y \
     build-essential \
     iputils-ping \
+    net-tools \
+    iproute2 \
     traceroute \
     telnet \
     whois \
