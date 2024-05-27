@@ -1,5 +1,5 @@
 IMAGE_NAME = marioaugustorama/devops-tools
-VERSION = v1.10
+VERSION = v1.11
 LATEST_TAG = latest
 
 USER_ID := $(shell id -u)
