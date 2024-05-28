@@ -37,6 +37,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
+
+# Atualiza o motd
+COPY update-motd.sh /usr/local/bin/update-motd.sh
+
+RUN chmod +x /usr/local/bin/update-motd.sh
+
+RUN echo "/usr/local/bin/update-motd.sh" >> /etc/bash.bashrc
+
 # Remover o usuário ubuntu
 RUN userdel -r ubuntu
 
