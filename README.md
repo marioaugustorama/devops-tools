@@ -11,7 +11,7 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
    - [Kubebox](https://github.com/astefanutti/kubebox): Uma ferramenta de linha de comando para visualizar e interagir com clusters Kubernetes.
    - [Kubespy](https://github.com/pulumi/kubespy): Uma ferramenta para monitorar eventos de recursos Kubernetes em tempo real.
    - [Helm](https://helm.sh/): Um gerenciador de pacotes para Kubernetes.
-   - [Eksctl](https://eksctl.io/)
+   - [Eksctl](https://eksctl.io/): Utilitário cli para criação e gerẽncia de cluster EKS na AWS.
 
 2. **Hashicorp**
    - [Terraform](https://www.terraform.io/): Uma ferramenta para provisionamento de infraestrutura.
