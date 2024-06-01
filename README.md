@@ -1,6 +1,6 @@
 # DevOps - Tools
 
-A distribuição foi projetada para atender às necessidades de profissionais e estudantes de DevOps, oferecendo uma seleção abrangente e atualizada das melhores ferramentas disponíveis no mercado. Ao reunir todas essas ferramentas em um único local, a distribuição visa agilizar o processo de configuração e implantação de ambientes DevOps. Isso elimina a necessidade de procurar e instalar cada ferramenta individualmente, proporcionando conveniência e economizando tempo. Com uma variedade de ferramentas essenciais já integradas e prontas para uso, os usuários podem começar a trabalhar rapidamente em seus projetos DevOps, aumentando sua produtividade e eficiência.
+A distribuição foi projetada para atender às necessidades de profissionais e estudantes de DevOps e Networking, oferecendo uma seleção abrangente e atualizada das melhores ferramentas disponíveis no mercado. Ao reunir todas essas ferramentas em um único local, a distribuição visa agilizar o processo de configuração e implantação de ambientes DevOps. Isso elimina a necessidade de procurar e instalar cada ferramenta individualmente, proporcionando conveniência e economizando tempo. Com uma variedade de ferramentas essenciais já integradas e prontas para uso, os usuários podem começar a trabalhar rapidamente em seus projetos DevOps, aumentando sua produtividade e eficiência.
 
 
 ## Ferramentas Disponíveis
@@ -27,11 +27,35 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 5. **Providers**
    - [AWS Cli](https://aws.amazon.com/pt/cli/): Uma interface de linha de comando para AWS.
    - [Digital Ocean Cli](https://docs.digitalocean.com/reference/doctl/): Uma interface de linha de comando para DigitalOcean.
+   - [Azure](https://learn.microsoft.com/pt-br/cli/azure/install-azure-cli): Ferramenta para acesso aos serviços da Microsoft Azure!
 
 6. **Utilitários**
    - [Rclone](https://rclone.org/): Uma ferramenta para sincronização de arquivos.
    - [Minio](https://min.io/): Um servidor de armazenamento de objetos de código aberto compatível com a API S3 da Amazon.
+   - [AzCopy](https://learn.microsoft.com/pt-br/azure/storage/common/storage-use-azcopy-v10): Ferramenta para cópiar facilmente de/para blobs e conta de armazenamento na Azure
 
+7. **Programas diversos** 
+   - iputils-ping
+   - net-tools 
+   - iproute2 
+   - traceroute
+   - telnet
+   - whois
+   - [ipcalc](https://linux.die.net/man/1/ipcalc): Ferramenta para calculo de redes.
+   - [tmux](https://github.com/tmux/tmux): Terminal Multiplexer
+   - [mtr](https://linux.die.net/man/8/mtr): Ferramenta para diagnóstico de rede.
+   - [pwgen](https://linux.die.net/man/1/pwgen): Gerador de senhas.
+   - [jq](https://jqlang.github.io/jq/): Json Parser para linha de comando.
+   - curl
+   - wget
+   - rsync
+   - [aria2](https://aria2.github.io/): Ferramenta de Download, suporte a HTTP, HTTPS, FTP, SFTP, BitTorrent e Metalink
+   - git
+   - unzip
+   - file
+   - vim
+   - mysql-client
+   - postgresql-client
 
 ## [Inicio Rápido](#quick-start)
 
