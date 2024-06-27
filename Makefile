@@ -1,5 +1,5 @@
 IMAGE_NAME = marioaugustorama/devops-tools
-VERSION = v1.14
+VERSION := $(shell cat version)
 LATEST_TAG = latest
 
 USER_ID := $(shell id -u)
@@ -22,7 +22,7 @@ clean:
 	@docker rmi $(IMAGE_NAME):$(VERSION)
 
 build:
-	@docker build --no-cache --build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) -t $(IMAGE_NAME):$(VERSION) .
+	@docker build --no-cache --build-arg VERSION=$(VERSION) --build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t $(IMAGE_NAME):$(VERSION) .
 
 tag-latest:
 	@docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):$(LATEST_TAG)

@@ -1,7 +1,13 @@
 FROM ubuntu:latest
+LABEL maintainer="mariogar1979@gmail.com"
 
 ARG USER_ID
 ARG GROUP_ID
+ARG BUILD_DATE
+ARG VERSION
+ENV VERSION=${VERSION}
+
+LABEL org.label-schema.build-date=$BUILD_DATE
 
 USER root
 
@@ -42,7 +48,8 @@ COPY update-motd.sh /usr/local/bin/update-motd.sh
 
 RUN chmod +x /usr/local/bin/update-motd.sh
 
-RUN echo "/usr/local/bin/update-motd.sh" >> /etc/bash.bashrc
+RUN echo "/usr/local/bin/update-motd.sh" >> /etc/bash.bashrc 
+RUN echo $VERSION > /etc/version 
 
 # Remover o usuário ubuntu
 RUN userdel -r ubuntu
@@ -109,18 +116,18 @@ RUN curl -LO "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz" && \
     install -o root -g root -m 0755 vault /usr/local/bin && \
     rm -rf vault_1.7.3_linux_amd64.zip vault
 
-RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh && \
+    RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh && \
     chmod +x /tmp/install-opentofu.sh && \
     /tmp/install-opentofu.sh --install-method deb && \
+    rm -rf /tmp/install-opentofu.sh && \
     curl -LO "https://dl.min.io/client/mc/release/linux-amd64/mc" && \
     install -o root -g root -m 0755 mc /usr/local/bin && \
     rm -rf mc && \
-    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash && \
+    curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
     curl -LO https://aka.ms/downloadazcopy-v10-linux && \
     tar xzvf downloadazcopy-v10-linux && \
-    install -o root -g root -m 0755 azcopy_linux_amd64_10.25.0/azcopy /usr/local/bin && \
-    rm -rf downloadazcopy-v10-linux azcopy_linux_amd64_10.25.0 
-
+    install -o root -g root -m 0755 azcopy_linux_amd64_10.25.1/azcopy /usr/local/bin && \
+    rm -rf downloadazcopy-v10-linux azcopy_linux_amd64_10.25.1
 
 COPY entrypoint.sh /tmp/entrypoint.sh
 
