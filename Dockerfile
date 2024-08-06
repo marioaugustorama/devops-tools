@@ -13,6 +13,7 @@ USER root
 
 RUN apt-get update && \
     apt-get install -y \
+    kubectx \
     build-essential \
     iputils-ping \
     net-tools \
@@ -65,69 +66,13 @@ RUN usermod -aG sudo devops
 
 RUN echo 'devops ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-# Instalação de ferramentas relacionadas ao Kubernetes
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    curl -s https://api.github.com/repos/derailed/k9s/releases/latest \
-    | grep browser_download_url \
-    | grep linux_amd64.deb \
-    | cut -d '"' -f 4 \
-    | wget -qi - && \
-    dpkg -i k9s_linux_amd64.deb && \
-    rm -rf k9s_linux_amd64.deb && \
-    curl -s https://api.github.com/repos/astefanutti/kubebox/releases/latest \
-    | grep browser_download_url \
-    | grep linux \
-    | cut -d '"' -f 4 \
-    | wget -qi - -O kubebox-linux && \
-    install -o root -g root -m 0755 kubebox-linux /usr/local/bin/kubebox && \
-    curl -LO https://github.com/pulumi/kubespy/releases/download/v0.6.3/kubespy-v0.6.3-linux-amd64.tar.gz && \
-    tar xzvf kubespy-v0.6.3-linux-amd64.tar.gz && \
-    install -o root -g root -m 0755 kubespy /usr/local/bin && \
-    rm -rf kubespy-v0.6.3-linux-amd64.tar.gz kubebox-linux kubectl kubespy
+# Copia e configura os scripts de instalação
+COPY scripts /usr/local/scripts
+COPY run_all.sh /usr/local/bin
+RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh
 
-# Instalação de outras ferramentas
-RUN curl -LO "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz" && \
-    tar xzvf helm-v3.7.0-linux-amd64.tar.gz && \
-    install -o root -g root -m 0755 linux-amd64/helm /usr/local/bin && \
-    rm -rf helm-v3.7.0-linux-amd64.tar.gz linux-amd64 && \
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws && \
-    curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_linux_amd64.tar.gz" && \
-    tar xzvf eksctl_linux_amd64.tar.gz && \
-    install -o root -g root -m 0755 eksctl /usr/local/bin && \
-    rm -rf eksctl_linux_amd64.tar.gz eksctl && \
-    curl -LO https://github.com/digitalocean/doctl/releases/download/v1.104.0/doctl-1.104.0-linux-amd64.tar.gz && \
-    tar xzvf doctl-1.104.0-linux-amd64.tar.gz && \
-    install -o root -g root -m 0755 doctl /usr/local/bin && \
-    rm -rf doctl-1.104.0-linux-amd64.tar.gz doctl && \
-    curl -LO "https://downloads.rclone.org/v1.56.0/rclone-v1.56.0-linux-amd64.zip" && \
-    unzip rclone-v1.56.0-linux-amd64.zip && \
-    install -o root -g root -m 0755 rclone-v1.56.0-linux-amd64/rclone /usr/local/bin && \
-    rm -rf rclone-v1.56.0-linux-amd64.zip rclone-v1.56.0-linux-amd64 && \
-    curl -LO "https://releases.hashicorp.com/terraform/1.0.8/terraform_1.0.8_linux_amd64.zip" && \
-    unzip terraform_1.0.8_linux_amd64.zip && \
-    install -o root -g root -m 0755 terraform /usr/local/bin && \
-    rm -rf terraform_1.0.8_linux_amd64.zip terraform && \
-    curl -LO "https://releases.hashicorp.com/vault/1.7.3/vault_1.7.3_linux_amd64.zip" && \
-    unzip vault_1.7.3_linux_amd64.zip && \
-    install -o root -g root -m 0755 vault /usr/local/bin && \
-    rm -rf vault_1.7.3_linux_amd64.zip vault
-
-    RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh && \
-    chmod +x /tmp/install-opentofu.sh && \
-    /tmp/install-opentofu.sh --install-method deb && \
-    rm -rf /tmp/install-opentofu.sh && \
-    curl -LO "https://dl.min.io/client/mc/release/linux-amd64/mc" && \
-    install -o root -g root -m 0755 mc /usr/local/bin && \
-    rm -rf mc && \
-    curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
-    curl -LO https://aka.ms/downloadazcopy-v10-linux && \
-    tar xzvf downloadazcopy-v10-linux && \
-    install -o root -g root -m 0755 azcopy_linux_amd64_10.25.1/azcopy /usr/local/bin && \
-    rm -rf downloadazcopy-v10-linux azcopy_linux_amd64_10.25.1
+# Executa todos os scripts de instalação
+RUN /usr/local/bin/run_all.sh
 
 COPY entrypoint.sh /tmp/entrypoint.sh
 

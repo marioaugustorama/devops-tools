@@ -6,6 +6,8 @@ VERSION=$(cat version)
 
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
+PORTS="30000-30005:30000-30005"
+
 
 show_help() {
     echo "Uso: $0 [opções] [comando]"
@@ -38,7 +40,8 @@ run() {
         -v "$(pwd)/backup:/backup" \
         -e LOCAL_USER_ID=$USER_ID \
         -e LOCAL_GROUP_ID=$GROUP_ID \
-	    -e VERSION=$VERSION \
+	-e VERSION=$VERSION \
+	-p $PORTS \
         $IMAGE_NAME:$LATEST_TAG "$@"
 }
 
