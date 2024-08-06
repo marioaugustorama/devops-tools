@@ -69,6 +69,7 @@ RUN echo 'devops ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # Copia e configura os scripts de instalação
 COPY scripts /usr/local/scripts
 COPY run_all.sh /usr/local/bin
+COPY utils.sh /usr/local/bin
 RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh
 
 # Executa todos os scripts de instalação
