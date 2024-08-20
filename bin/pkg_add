@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Diretório onde estão localizados os scripts
+SCRIPTS_DIR="/usr/local/scripts"
+
+# Função para listar os pacotes disponíveis
+list_packages() {
+  echo "Pacotes disponíveis:"
+  for script in "$SCRIPTS_DIR"/*; do
+    filename=$(basename -- "$script")
+    name="${filename%.*}"
+    echo "- $name"
+  done
+}
+
+# Verifica se o nome do pacote foi fornecido
+if [ -z "$1" ]; then
+  echo "Uso: $0 <list|nome_do_pacote>"
+  exit 1
+fi
+
+# Ação solicitada pelo usuário
+ACTION="$1"
+
+if [ "$ACTION" == "list" ]; then
+  # Lista os pacotes disponíveis
+  list_packages
+else
+  # Nome do pacote fornecido como argumento
+  PACKAGE_NAME="$ACTION"
+
+  # Verifica se o pacote está na lista de scripts disponíveis
+  if [ -f "$SCRIPTS_DIR/$PACKAGE_NAME.sh" ]; then
+    # Executa o script com sudo
+    sudo "$SCRIPTS_DIR/$PACKAGE_NAME.sh"
+    echo "Pacote '$PACKAGE_NAME' instalado com sucesso."
+  else
+    echo "Pacote '$PACKAGE_NAME' não encontrado."
+    exit 1
+  fi
+fi

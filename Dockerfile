@@ -4,8 +4,8 @@ LABEL maintainer="mariogar1979@gmail.com"
 ARG USER_ID
 ARG GROUP_ID
 ARG BUILD_DATE
-ARG VERSION
-ENV VERSION=${VERSION}
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 
 LABEL org.label-schema.build-date=$BUILD_DATE
 
@@ -13,6 +13,7 @@ USER root
 
 RUN apt-get update && \
     apt-get install -y \
+    locales \
     kubectx \
     build-essential \
     iputils-ping \
@@ -44,13 +45,22 @@ RUN apt-get update && \
     ansible && \
     rm -rf /var/lib/apt/lists/*
 
+RUN locale-gen pt_BR.UTF-8 && \
+    update-locale LANG=pt_BR.UTF-8
+
+# Definir variáveis de ambiente para o locale
+ENV LANG=pt_BR.UTF-8
+ENV LANGUAGE=pt_BR:pt
+ENV LC_ALL=pt_BR.UTF-8
+
+
 # Atualiza o motd
 COPY update-motd.sh /usr/local/bin/update-motd.sh
 
 RUN chmod +x /usr/local/bin/update-motd.sh
 
 RUN echo "/usr/local/bin/update-motd.sh" >> /etc/bash.bashrc 
-RUN echo $VERSION > /etc/version 
+RUN echo $APP_VERSION > /etc/version 
 
 # Remover o usuário ubuntu
 RUN userdel -r ubuntu
@@ -69,7 +79,9 @@ RUN echo 'devops ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # Copia e configura os scripts de instalação
 COPY scripts /usr/local/scripts
 COPY run_all.sh /usr/local/bin
-RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh
+COPY utils.sh /usr/local/bin
+COPY bin/pkg_add /usr/local/bin
+RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pkg_add
 
 # Executa todos os scripts de instalação
 RUN /usr/local/bin/run_all.sh
