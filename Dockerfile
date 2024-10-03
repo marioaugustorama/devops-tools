@@ -13,6 +13,7 @@ USER root
 
 RUN apt-get update && \
     apt-get install -y \
+    htop \
     locales \
     kubectx \
     build-essential \
@@ -21,6 +22,7 @@ RUN apt-get update && \
     iproute2 \
     traceroute \
     telnet \
+    bind9-dnsutils \
     whois \
     ipcalc \
     tmux \
@@ -39,9 +41,12 @@ RUN apt-get update && \
     vim \
     groff \
     mandoc \
+    bmon \
     mysql-client \
     postgresql-client \
     python3-pip \
+    sshfs \
+    bash-completion \
     ansible && \
     rm -rf /var/lib/apt/lists/*
 
@@ -56,9 +61,11 @@ ENV LC_ALL=pt_BR.UTF-8
 
 # Atualiza o motd
 COPY update-motd.sh /usr/local/bin/update-motd.sh
+COPY update_bashrc /usr/local/bin/update_bashrc
 
 RUN chmod +x /usr/local/bin/update-motd.sh
 
+RUN cat /usr/local/bin/update_bashrc >> /etc/bash.bashrc
 RUN echo "/usr/local/bin/update-motd.sh" >> /etc/bash.bashrc 
 RUN echo $APP_VERSION > /etc/version 
 
