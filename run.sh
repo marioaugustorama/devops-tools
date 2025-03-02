@@ -1,11 +1,12 @@
 #!/bin/bash
 
 IMAGE_NAME="marioaugustorama/devops-tools"
-LATEST_TAG="latest"
+LATEST_TAG="v1.16.6"
 VERSION=$(cat version)
 
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
+IP_BIND="0.0.0.0"
 PORTS="30000-30005:30000-30005"
 
 
@@ -34,14 +35,17 @@ run() {
         mkdir -p backup
     fi
 
-    docker run -it --tty --rm \
+    docker run --name devops-tools --privileged -it --tty --rm \
         -u $USER_ID:$GROUP_ID \
+        -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$(pwd)/home:/tools" \
         -v "$(pwd)/backup:/backup" \
+	-v "/mnt/sdb/backup:/devtools_backup" \
+        -v "$(pwd)/logs:/var/log" \
         -e LOCAL_USER_ID=$USER_ID \
         -e LOCAL_GROUP_ID=$GROUP_ID \
-	-e VERSION=$VERSION \
-	-p $PORTS \
+	-e APP_VERSION=$VERSION \
+	-p $IP_BIND:$PORTS \
         $IMAGE_NAME:$LATEST_TAG "$@"
 }
 

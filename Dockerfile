@@ -12,6 +12,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE
 USER root
 
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
     htop \
     locales \
@@ -31,6 +32,7 @@ RUN apt-get update && \
     jq \
     sudo \
     procps \
+    psmisc \
     curl \
     wget \
     rsync \
@@ -75,8 +77,14 @@ RUN userdel -r ubuntu
 # Verificar se o grupo com o GID especificado já existe
 RUN getent group devops || groupadd --gid ${GROUP_ID} devops
 
+# Verificar se o grupo docker já existe, caso contrário, crie-o
+RUN getent group docker || groupadd docker
+
 # Criar um usuário devops dentro do contêiner com o userid do usuário local e pertencente ao grupo devops
 RUN useradd --gid ${GROUP_ID} --uid ${USER_ID} --create-home --home /tools --shell /bin/bash devops
+
+# Adicionar o usuário devops ao grupo docker
+RUN usermod -aG docker devops
 
 # Adicionar o usuário ao grupo sudo (opcional)
 RUN usermod -aG sudo devops

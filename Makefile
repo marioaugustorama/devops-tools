@@ -21,8 +21,14 @@ run:
 clean:
 	@docker rmi $(IMAGE_NAME):$(VERSION)
 
+
 build:
-	@docker build --no-cache --build-arg VERSION=$(VERSION) --build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t $(IMAGE_NAME):$(VERSION) .
+	@docker build --no-cache \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg USER_ID="$(USER_ID)" \
+		--build-arg GROUP_ID="$(GROUP_ID)" \
+		--build-arg BUILD_DATE="$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+		-t $(IMAGE_NAME):$(VERSION) .
 
 tag-latest:
 	@docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):$(LATEST_TAG)
