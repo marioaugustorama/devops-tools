@@ -1,0 +1,62 @@
+# Excluir VCS e metadados
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+
+# Diretórios de trabalho/artefatos locais
+logs/
+backup/
+home/
+
+# Credenciais de nuvem e ferramentas
+.kube/
+kubeconfig
+kubeconfig.*
+.aws/
+aws/
+.azure/
+.gcloud/
+gcloud/
+.config/gcloud/
+.config/doctl/
+doctl.yaml
+doctl/config.yaml
+application_default_credentials.json
+adc.json
+*service-account*.json
+*sa-*.json
+
+# Credenciais/chaves comuns (não devem entrar no contexto)
+*.pem
+*.key
+id_rsa
+id_ed25519
+known_hosts
+.env
+.env.*
+
+# Caches/virtual envs/dep dirs
+__pycache__/
+*.pyc
+.cache/
+.venv/
+venv/
+node_modules/
+
+# Arquivos grandes/temporários
+*.log
+*.tmp
+*.swp
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.xz
+*.7z
+*.iso
+
+# Outros
+run-dev.sh

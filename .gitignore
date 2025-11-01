@@ -1,3 +1,56 @@
 /home
 /backup
 run-dev.sh
+logs/
+*.log
+
+# Credenciais/chaves comuns
+*.pem
+*.key
+id_rsa
+id_ed25519
+known_hosts
+.env
+.env.*
+
+# Credenciais de nuvem e ferramentas
+.kube/
+kubeconfig
+kubeconfig.*
+.aws/
+aws/
+.azure/
+.gcloud/
+gcloud/
+.config/gcloud/
+.config/doctl/
+doctl.yaml
+doctl/config.yaml
+application_default_credentials.json
+adc.json
+*service-account*.json
+*sa-*.json
+
+# Caches/temporários
+__pycache__/
+*.pyc
+.cache/
+.vscode/
+.idea/
+.DS_Store
+
+# Terraform/Infra estados (não versionar)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/crash.log
+*.tfvars
+*.tfvars.json
+
+# Outros artefatos grandes
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.xz
+*.7z

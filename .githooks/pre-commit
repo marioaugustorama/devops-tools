@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Config
+VERSION_FILE=${VERSION_FILE:-version}
+ALLOW_SKIP=${ALLOW_SKIP_VERSION:-0}
+
+# Se quiser pular a checagem: ALLOW_SKIP_VERSION=1 git commit ...
+if [[ "$ALLOW_SKIP" == "1" ]]; then
+  exit 0
+fi
+
+# Arquivos que exigem atualização de versão quando alterados
+PATTERN='^(Dockerfile|entrypoint\.sh|src/|run.*\.sh|\.dockerignore|\.gitignore)'
+
+changed=$(git diff --cached --name-only || true)
+
+# Nada a checar se não houver staged changes
+if [[ -z "$changed" ]]; then
+  exit 0
+fi
+
+requires_version_update=$(printf "%s\n" "$changed" | grep -E "$PATTERN" || true)
+version_staged=$(printf "%s\n" "$changed" | grep -x "$VERSION_FILE" || true)
+
+if [[ -n "$requires_version_update" && -z "$version_staged" ]]; then
+  echo "[pre-commit] Alterações em arquivos críticos detectadas:" >&2
+  printf "%s\n" "$requires_version_update" >&2
+  if [[ -f "$VERSION_FILE" ]]; then
+    echo "[pre-commit] Auto-incrementando versão (patch)." >&2
+    out=$(scripts/version.sh bump patch --stage)
+    echo "[pre-commit] $out" >&2
+  else
+    echo "[pre-commit] Arquivo '$VERSION_FILE' não encontrado; crie-o (ex.: v0.0.0) ou exporte ALLOW_SKIP_VERSION=1 para pular." >&2
+    exit 1
+  fi
+fi
+
+exit 0
