@@ -16,11 +16,16 @@ ARG VAULT_VERSION=1.7.3
 ARG K9S_VERSION=v0.50.16
 ARG KUBESPY_VERSION=v0.6.3
 
+# APT mirrors (permite override no build)
+ARG APT_MIRROR=http://archive.ubuntu.com/ubuntu
+ARG APT_SECURITY_MIRROR=http://security.ubuntu.com/ubuntu
+
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
+RUN sed -i "s|http://archive.ubuntu.com/ubuntu|${APT_MIRROR}|g; s|http://security.ubuntu.com/ubuntu|${APT_SECURITY_MIRROR}|g" /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     sudo \
     procps \
@@ -71,7 +76,6 @@ RUN set -euo pipefail && \
     tar xzf k9s.tar.gz && \
     install -o root -g root -m 0755 k9s /usr/local/bin/k9s && \
     rm -f k9s k9s.tar.gz k9s_checksums.txt && \
-    \
     # kubebox (latest binary; upstream does not provide easy checksums)
     curl -s https://api.github.com/repos/astefanutti/kubebox/releases/latest \
     | grep browser_download_url \
@@ -80,7 +84,6 @@ RUN set -euo pipefail && \
     | wget -qi - -O kubebox-linux && \
     install -o root -g root -m 0755 kubebox-linux /usr/local/bin/kubebox && \
     rm -f kubebox-linux && \
-    \
     # kubespy (pinned)
     curl -fsSLO https://github.com/pulumi/kubespy/releases/download/${KUBESPY_VERSION}/kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
     tar xzvf kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
@@ -111,13 +114,11 @@ RUN curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" 
     curl -fsSLo rclone-SHA256SUMS "https://downloads.rclone.org/v${RCLONE_VERSION}/SHA256SUMS" && \
     grep "rclone-v${RCLONE_VERSION}-linux-amd64.zip" rclone-SHA256SUMS | sha256sum -c - && \
     unzip -q rclone.zip && install -o root -g root -m 0755 rclone-v${RCLONE_VERSION}-linux-amd64/rclone /usr/local/bin && rm -rf rclone.zip rclone-SHA256SUMS rclone-v${RCLONE_VERSION}-linux-amd64 && \
-    
     # terraform (pinned + checksum)
     curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
     curl -fsSLo terraform_SHA256SUMS "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
     grep "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" terraform_SHA256SUMS | sha256sum -c - && \
     unzip -q terraform.zip && install -o root -g root -m 0755 terraform /usr/local/bin && rm -f terraform terraform.zip terraform_SHA256SUMS && \
-    
     # vault (pinned + checksum)
     curl -fsSLo vault.zip "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip" && \
     curl -fsSLo vault_SHA256SUMS "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_SHA256SUMS" && \

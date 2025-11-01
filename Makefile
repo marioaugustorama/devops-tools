@@ -1,34 +1,53 @@
-IMAGE_NAME = marioaugustorama/devops-tools
-VERSION = v1.7
-LATEST_TAG = latest
+SHELL := /bin/bash
 
-USER_ID := $(shell id -u)
-GROUP_ID := $(shell id -g)
+# Image coordinates
+IMAGE ?= marioaugustorama/devops-tools
+TAG ?= $(shell cat version)
 
-run:
-	@if [ ! -d "home" ]; then \
-			mkdir -p home; \
-	fi
+# Build args
+APT_MIRROR ?= http://archive.ubuntu.com/ubuntu
+APT_SECURITY_MIRROR ?= http://security.ubuntu.com/ubuntu
 
-	@docker run -it --tty --rm \
-		-u $(id -u ):$(id -g) \
-		-v "$(PWD)/home:/tools" \
-		-v "$(PWD)/backup:/backup" \
-		-e LOCAL_USER_ID=$(id -u) \
-		-e LOCAL_GROUP_ID=$(id -g) \
-		$(IMAGE_NAME):$(VERSION) bash
+# Docker build options
+BUILD_OPTS ?= --network=host
 
-clean:
-	@docker rmi $(IMAGE_NAME):$(VERSION)
+.PHONY: help build push tag-latest run bump-patch bump-minor bump-major version
+
+help:
+	@echo "Targets:"
+	@echo "  build          Build image $(IMAGE):$(TAG) (host network by default)"
+	@echo "  push           Push image $(IMAGE):$(TAG)"
+	@echo "  tag-latest     Tag $(IMAGE):$(TAG) as latest and push"
+	@echo "  run            Run using run.sh with IMAGE/TAG"
+	@echo "  bump-<x>       Bump version file: patch|minor|major"
+	@echo "  version        Print current version"
+	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS"
 
 build:
-	@docker build --no-cache --build-arg USER_ID=$(USER_ID) --build-arg GROUP_ID=$(GROUP_ID) -t $(IMAGE_NAME):$(VERSION) .
+	docker build $(BUILD_OPTS) \
+	  --build-arg APT_MIRROR=$(APT_MIRROR) \
+	  --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
+	  -t $(IMAGE):$(TAG) .
+
+push:
+	docker push $(IMAGE):$(TAG)
 
 tag-latest:
-	@docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):$(LATEST_TAG)
+	docker tag $(IMAGE):$(TAG) $(IMAGE):latest
+	docker push $(IMAGE):latest
 
-push: build tag-latest
-	@docker push $(IMAGE_NAME):$(VERSION)
-	@docker push $(IMAGE_NAME):$(LATEST_TAG)
+run:
+	DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) ./run.sh
 
-.PHONY: run clean build tag-latest push
+bump-patch:
+	./scripts/version.sh bump patch --stage || true
+
+bump-minor:
+	./scripts/version.sh bump minor --stage || true
+
+bump-major:
+	./scripts/version.sh bump major --stage || true
+
+version:
+	@./scripts/version.sh show
+
