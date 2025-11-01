@@ -112,7 +112,6 @@ RUN usermod -aG sudo devops
 
 RUN echo 'devops ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-<<<<<<< HEAD
 # Instalação de ferramentas relacionadas ao Kubernetes
 WORKDIR /tmp
 
@@ -187,7 +186,7 @@ RUN curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opent
     curl -fsSLO "https://dl.min.io/client/mc/release/linux-amd64/mc" && \
     install -o root -g root -m 0755 mc /usr/local/bin && \
     rm -rf /tmp/*
-=======
+
 # Copia e configura os scripts de instalação
 COPY scripts /usr/local/scripts
 COPY run_all.sh /usr/local/bin
@@ -197,7 +196,6 @@ RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pk
 
 # Executa todos os scripts de instalação
 RUN /usr/local/bin/run_all.sh
->>>>>>> 43ebc3af814713700cb9fa024d353b888583d0cc
 
 COPY entrypoint.sh /tmp/entrypoint.sh
 
