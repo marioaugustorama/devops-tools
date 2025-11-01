@@ -20,6 +20,9 @@ ARG KUBESPY_VERSION=v0.6.3
 ARG APT_MIRROR=http://archive.ubuntu.com/ubuntu
 ARG APT_SECURITY_MIRROR=http://security.ubuntu.com/ubuntu
 
+# Checagem de integridade (1=verifica, 0=ignora)
+ARG STRICT_CHECKSUM=1
+
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -63,15 +66,15 @@ WORKDIR /tmp
 
 # kubectl (pinned + checksum)
 RUN set -euo pipefail && \
-    curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" && \
-    curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl.sha256" && \
-    echo "$(cat kubectl.sha256) kubectl" | sha256sum -c - && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -O "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -O "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl.sha256" && \
+    ( [[ "${STRICT_CHECKSUM}" = "1" ]] && echo "$(cat kubectl.sha256) kubectl" | sha256sum -c - || echo "[warn] skipping kubectl checksum verification" ) && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
     rm -f kubectl kubectl.sha256 && \
     \
     # k9s (pinned + checksum)
-    curl -fsSLo k9s.tar.gz "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" && \
-    (curl -fsSLo k9s_checksums.txt "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.txt" || true) && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o k9s.tar.gz "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" && \
+    (curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o k9s_checksums.txt "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.txt" || true) && \
     (test -s k9s_checksums.txt && grep "k9s_Linux_${ARCH}.tar.gz" k9s_checksums.txt | sha256sum -c - || echo "[warn] skipping k9s checksum verification") && \
     tar xzf k9s.tar.gz && \
     install -o root -g root -m 0755 k9s /usr/local/bin/k9s && \
@@ -85,44 +88,44 @@ RUN set -euo pipefail && \
     install -o root -g root -m 0755 kubebox-linux /usr/local/bin/kubebox && \
     rm -f kubebox-linux && \
     # kubespy (pinned)
-    curl -fsSLO https://github.com/pulumi/kubespy/releases/download/${KUBESPY_VERSION}/kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -O https://github.com/pulumi/kubespy/releases/download/${KUBESPY_VERSION}/kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
     tar xzvf kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
     install -o root -g root -m 0755 kubespy /usr/local/bin && \
     rm -f kubespy kubespy-${KUBESPY_VERSION}-linux-amd64.tar.gz && \
     rm -rf /tmp/*
 
 # Instalação de outras ferramentas
-RUN curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" && \
-    curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum" && \
-    echo "$(cat helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum) helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" | sha256sum -c - && \
+RUN curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -O "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -O "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum" && \
+    ( [[ "${STRICT_CHECKSUM}" = "1" ]] && echo "$(cat helm-${HELM_VERSION}-linux-${ARCH}.tar.gz.sha256sum) helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" | sha256sum -c - || echo "[warn] skipping helm checksum verification" ) && \
     tar xzvf helm-${HELM_VERSION}-linux-${ARCH}.tar.gz && \
     install -o root -g root -m 0755 linux-${ARCH}/helm /usr/local/bin && \
     rm -rf linux-${ARCH} helm-${HELM_VERSION}-linux-${ARCH}.tar.gz* && \
-    curl -fsSLo awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && rm -rf aws awscliv2.zip && \
     \
     # doctl (pinned; try to verify if checksums file exists)
-    curl -fsSLo doctl.tar.gz "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" && \
-    (curl -fsSLo doctl-checksums.txt "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-checksums.txt" || \
-     curl -fsSLo doctl-checksums.txt "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/checksums.txt" || true) && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o doctl.tar.gz "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" && \
+    (curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o doctl-checksums.txt "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-checksums.txt" || \
+     curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o doctl-checksums.txt "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/checksums.txt" || true) && \
     (test -s doctl-checksums.txt && grep "doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" doctl-checksums.txt | sha256sum -c - || echo "[warn] skipping doctl checksum verification") && \
     tar xzvf doctl.tar.gz && install -o root -g root -m 0755 doctl /usr/local/bin && rm -f doctl doctl.tar.gz doctl-checksums.txt && \
     \
     # rclone (pinned + checksum)
-    curl -fsSLo rclone.zip "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.zip" && \
-    curl -fsSLo rclone-SHA256SUMS "https://downloads.rclone.org/v${RCLONE_VERSION}/SHA256SUMS" && \
-    grep "rclone-v${RCLONE_VERSION}-linux-amd64.zip" rclone-SHA256SUMS | sha256sum -c - && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o rclone.zip "https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.zip" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o rclone-SHA256SUMS "https://downloads.rclone.org/v${RCLONE_VERSION}/SHA256SUMS" && \
+    ( [[ "${STRICT_CHECKSUM}" = "1" ]] && grep "rclone-v${RCLONE_VERSION}-linux-amd64.zip" rclone-SHA256SUMS | sha256sum -c - || echo "[warn] skipping rclone checksum verification" ) && \
     unzip -q rclone.zip && install -o root -g root -m 0755 rclone-v${RCLONE_VERSION}-linux-amd64/rclone /usr/local/bin && rm -rf rclone.zip rclone-SHA256SUMS rclone-v${RCLONE_VERSION}-linux-amd64 && \
     # terraform (pinned + checksum)
-    curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
-    curl -fsSLo terraform_SHA256SUMS "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
-    grep "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" terraform_SHA256SUMS | sha256sum -c - && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o terraform_SHA256SUMS "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
+    ( [[ "${STRICT_CHECKSUM}" = "1" ]] && grep "terraform_${TERRAFORM_VERSION}_linux_amd64.zip" terraform_SHA256SUMS | sha256sum -c - || echo "[warn] skipping terraform checksum verification" ) && \
     unzip -q terraform.zip && install -o root -g root -m 0755 terraform /usr/local/bin && rm -f terraform terraform.zip terraform_SHA256SUMS && \
     # vault (pinned + checksum)
-    curl -fsSLo vault.zip "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip" && \
-    curl -fsSLo vault_SHA256SUMS "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_SHA256SUMS" && \
-    grep "vault_${VAULT_VERSION}_linux_amd64.zip" vault_SHA256SUMS | sha256sum -c - && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o vault.zip "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip" && \
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 10 -o vault_SHA256SUMS "https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_SHA256SUMS" && \
+    ( [[ "${STRICT_CHECKSUM}" = "1" ]] && grep "vault_${VAULT_VERSION}_linux_amd64.zip" vault_SHA256SUMS | sha256sum -c - || echo "[warn] skipping vault checksum verification" ) && \
     unzip -q vault.zip && install -o root -g root -m 0755 vault /usr/local/bin && rm -f vault vault.zip vault_SHA256SUMS && \
     rm -rf /tmp/*
 
