@@ -1,5 +1,8 @@
 /home
 /backup
+pkg_state/
+vpn-configs/
+wireguard-keys/
 run-dev.sh
 logs/
 *.log
@@ -30,6 +33,9 @@ application_default_credentials.json
 adc.json
 *service-account*.json
 *sa-*.json
+KUBECONFIG*
+*accessKeys*.csv
+DEB-GPG-KEY
 
 # Caches/temporários
 __pycache__/
