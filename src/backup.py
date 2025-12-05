@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import subprocess
 import datetime
 
@@ -23,32 +24,54 @@ def is_docker():
 
 
 def backup_name():
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     return f"tools-backup-{current_date}.tar.xz"
 
 
 def make_backup(directory, filename):
-    command = ["tar", "cJvf", f"/backup/{filename}", "-C", directory, "."]
+    out_path = f"/backup/{filename}"
+    # Excluir diretórios comuns que não interessam no backup do workspace
+    excludes = [
+        "--exclude=.cache",
+        "--exclude=__pycache__",
+        "--exclude=.terraform",
+        "--exclude=node_modules",
+        "--exclude=.venv",
+    ]
+    command = [
+        "tar",
+        "cJvf",
+        out_path,
+        *excludes,
+        "-C",
+        directory,
+        ".",
+    ]
 
     try:
         subprocess.run(command, check=True)
 
-        print(f"Backup criado com sucesso: {filename}")
+        print(f"Backup criado com sucesso: {out_path}")
 
     except subprocess.CalledProcessError as e:
-        print(f"Erro ao criar o backup: {e}")
+        print(f"Erro ao criar o backup: {e}", file=sys.stderr)
+        sys.exit(e.returncode or 1)
 
 
 def main():
-    if is_docker():
-        dir_to_backup = "/tools"
+    if not is_docker():
+        print("Script deve ser executado apenas dentro do container!", file=sys.stderr)
+        sys.exit(1)
 
-        filename = backup_name()
+    dir_to_backup = "/tools"
 
-        make_backup(dir_to_backup, filename)
-    else:
-        print("Script deve ser executado apenas dentro do container!")
-        exit(1)
+    # Verifica destino
+    if not os.path.isdir("/backup"):
+        print("Diretório /backup não encontrado. Monte um volume em /backup.", file=sys.stderr)
+        sys.exit(1)
+
+    filename = backup_name()
+    make_backup(dir_to_backup, filename)
 
 
 if __name__ == "__main__":

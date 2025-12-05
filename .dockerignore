@@ -10,6 +10,9 @@
 logs/
 backup/
 home/
+pkg_state/
+vpn-configs/
+wireguard-keys/
 
 # Credenciais de nuvem e ferramentas
 .kube/

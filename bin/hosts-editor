@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""
+Gerencia entradas em /etc/hosts via linha de comando (add/remove) sem abrir editor.
+"""
+import argparse
+import datetime
+import ipaddress
+import os
+import pathlib
+import shutil
+import sys
+import tempfile
+from typing import Iterable, List, Sequence, Tuple
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Adiciona ou remove entradas no arquivo hosts sem editor."
+    )
+    parser.add_argument(
+        "--file",
+        default=os.environ.get("HOSTS_FILE", "/etc/hosts"),
+        help="caminho do arquivo hosts (padrão: %(default)s ou $HOSTS_FILE)",
+    )
+    parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="não gera cópia de segurança antes de alterar",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    add = sub.add_parser("add", help="adiciona uma entrada (remove duplicatas antes)")
+    add.add_argument("ip", help="endereço IPv4/IPv6")
+    add.add_argument(
+        "names",
+        nargs="+",
+        help="hostname/alias a apontar para o IP (aceita vários)",
+    )
+
+    rm = sub.add_parser("remove", help="remove hostnames/aliases")
+    rm.add_argument("names", nargs="+", help="hostnames a remover")
+
+    sub.add_parser("list", help="lista entradas atuais (ignora comentários)")
+    return parser.parse_args()
+
+
+def ensure_valid_ip(value: str) -> str:
+    try:
+        ipaddress.ip_address(value)
+    except ValueError as exc:
+        sys.exit(f"IP inválido: {exc}")
+    return value
+
+
+def normalize_names(names: Sequence[str]) -> List[str]:
+    seen = set()
+    result: List[str] = []
+    for name in names:
+        lowered = name.strip().lower()
+        if not lowered or lowered in seen:
+            continue
+        seen.add(lowered)
+        result.append(lowered)
+    if not result:
+        sys.exit("Nenhum hostname válido informado.")
+    return result
+
+
+def split_comment(line: str) -> Tuple[str, str]:
+    if "#" not in line:
+        return line.rstrip("\n"), ""
+    prefix, _, suffix = line.partition("#")
+    return prefix.rstrip(), suffix.rstrip("\n")
+
+
+def load_lines(path: pathlib.Path) -> List[str]:
+    if not path.exists():
+        return []
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def write_lines(path: pathlib.Path, lines: Iterable[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.NamedTemporaryFile(
+        "w", delete=False, dir=str(path.parent), encoding="utf-8"
+    )
+    with tmp:
+        tmp.write("\n".join(line.rstrip("\n") for line in lines).rstrip() + "\n")
+    os.replace(tmp.name, path)
+
+
+def backup(path: pathlib.Path) -> pathlib.Path:
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    backup_path = path.with_name(f"{path.name}.{timestamp}.bak")
+    shutil.copy2(path, backup_path)
+    return backup_path
+
+
+def remove_hosts(lines: List[str], targets: Sequence[str]) -> List[str]:
+    target_set = {name.lower() for name in targets}
+    updated: List[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            updated.append(line.rstrip("\n"))
+            continue
+        content, comment = split_comment(line)
+        parts = content.split()
+        if not parts:
+            updated.append(line.rstrip("\n"))
+            continue
+        ip, *hosts = parts
+        remaining = [host for host in hosts if host.lower() not in target_set]
+        if remaining:
+            rebuilt = f"{ip}\t{' '.join(remaining)}"
+            if comment:
+                rebuilt = f"{rebuilt}  #{comment.lstrip('#').strip()}"
+            updated.append(rebuilt)
+        elif comment:
+            cleaned_comment = comment.strip()
+            if not cleaned_comment.startswith("#"):
+                cleaned_comment = f"# {cleaned_comment}"
+            updated.append(cleaned_comment)
+    return updated
+
+
+def append_entry(lines: List[str], ip: str, names: Sequence[str]) -> List[str]:
+    entry = f"{ip}\t{' '.join(names)}"
+    return [*lines, entry]
+
+
+def list_entries(lines: List[str]) -> None:
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        content, _ = split_comment(line)
+        parts = content.split()
+        if len(parts) < 2:
+            continue
+        ip, hosts = parts[0], parts[1:]
+        print(f"{ip}: {', '.join(hosts)}")
+
+
+def main() -> None:
+    args = parse_args()
+    target_path = pathlib.Path(args.file)
+    writable_target = target_path if target_path.exists() else target_path.parent
+    if not os.access(writable_target, os.W_OK):
+        sys.exit(f"Sem permissão para alterar {target_path}; rode com sudo.")
+
+    lines = load_lines(target_path)
+
+    if args.command == "list":
+        list_entries(lines)
+        return
+
+    if not args.no_backup and target_path.exists():
+        backup_path = backup(target_path)
+        print(f"Backup criado em {backup_path}")
+
+    if args.command == "remove":
+        names = normalize_names(args.names)
+        new_lines = remove_hosts(lines, names)
+        write_lines(target_path, new_lines)
+        print(f"Removido: {', '.join(names)} em {target_path}")
+        return
+
+    if args.command == "add":
+        ip = ensure_valid_ip(args.ip)
+        names = normalize_names(args.names)
+        cleaned = remove_hosts(lines, names)
+        new_lines = append_entry(cleaned, ip, names)
+        write_lines(target_path, new_lines)
+        print(f"Registrado {ip} -> {', '.join(names)} em {target_path}")
+        return
+
+    sys.exit("Comando desconhecido.")
+
+
+if __name__ == "__main__":
+    main()

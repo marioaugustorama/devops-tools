@@ -1,0 +1,21 @@
+# name<TAB>description
+awscli	CLI da AWS para gerenciamento de serviços AWS.
+azure-tools	CLI da Azure e AzCopy para transferências e gestão.
+docker	Instalação do Docker Engine e grupo docker para uso do socket.
+doctl	CLI da DigitalOcean para recursos e Kubernetes.
+eksctl	CLI oficial para criar e gerenciar clusters EKS.
+eks-node-viewer	Visualizador interativo de nós EKS no terminal.
+helm	Gerenciador de pacotes para Kubernetes.
+k9s	Interface TUI para administrar clusters Kubernetes.
+kubebox	Dashboard de terminal para Kubernetes.
+kubectl	CLI padrão do Kubernetes para aplicar e inspecionar recursos.
+kubectl-tree	Plugin kubectl para listar árvore de recursos.
+kubespy	Watcher de eventos de recursos Kubernetes em tempo real.
+kubectx	Switch de contextos do kubectl.
+kubens	Switch de namespaces do kubectl.
+mc	Cliente MinIO compatível com S3 (mc).
+opentofu	CLI OpenTofu (fork open source do Terraform).
+rclone	Sincronização/transferência de arquivos para múltiplos backends.
+terraform	CLI Terraform para IaC.
+vault	Cofre de segredos HashiCorp Vault CLI.
+wireguard-tools	Cliente WireGuard (wg/wg-quick) para VPNs.

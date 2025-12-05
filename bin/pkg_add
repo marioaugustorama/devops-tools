@@ -1,41 +1,313 @@
 #!/bin/bash
+set -euo pipefail
+shopt -s nullglob
 
 # Diretório onde estão localizados os scripts
-SCRIPTS_DIR="/usr/local/scripts"
+SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/scripts}"
+PKG_INDEX="${PKG_INDEX:-$SCRIPTS_DIR/packages.tsv}"
+STATE_FILE_DEFAULT="/var/lib/devops-pkg/installed.list"
+STATE_FILE="${STATE_FILE:-$STATE_FILE_DEFAULT}"
+PKG_REMOTE_INDEX="${PKG_REMOTE_INDEX:-}"
+PKG_REMOTE_SCRIPTS_DIR="${PKG_REMOTE_SCRIPTS_DIR:-}"
 
-# Função para listar os pacotes disponíveis
-list_packages() {
-  echo "Pacotes disponíveis:"
-  for script in "$SCRIPTS_DIR"/*; do
-    filename=$(basename -- "$script")
-    name="${filename%.*}"
-    echo "- $name"
+AVAILABLE=()
+declare -A PKG_DESC
+
+usage() {
+  cat >&2 <<EOF
+Uso: $0 <comando> [opções]
+
+Comandos:
+  list [--installed]   Lista pacotes disponíveis (ou só os instalados)
+  status               Lista pacotes e se já foram instalados via pkg_add
+  info <pacote>        Mostra detalhes de um pacote
+  install [--all] [--force] <pacote> [pacote...]
+                       Instala um ou mais pacotes (ou todos com --all)
+  disable <pacote>...  Marca pacotes como desabilitados (remove da lista instalada)
+  update               Atualiza manifestos/scripts a partir de repositório remoto (se configurado)
+
+Variáveis úteis:
+  SCRIPTS_DIR (padrão: /usr/local/scripts)
+  PKG_INDEX   (padrão: \$SCRIPTS_DIR/packages.tsv)
+  STATE_FILE  (padrão: /var/lib/devops-pkg/installed.list)
+  PKG_REMOTE_INDEX        URL opcional do manifest (packages.tsv) remoto
+  PKG_REMOTE_SCRIPTS_DIR  URL base opcional para baixar scripts (*.sh)
+EOF
+}
+
+try_run_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      sudo "$@"
+    else
+      echo "Aviso: sudo pede senha, tentando sem sudo..." >&2
+      "$@"
+    fi
+  else
+    "$@"
+  fi
+}
+
+load_packages() {
+  AVAILABLE=()
+  PKG_DESC=()
+  if [ -f "$PKG_INDEX" ]; then
+    while IFS=$'\t' read -r name desc; do
+      [[ -z "${name:-}" || "${name:0:1}" == "#" ]] && continue
+      AVAILABLE+=("$name")
+      PKG_DESC["$name"]="$desc"
+    done < "$PKG_INDEX"
+  fi
+
+  if [ ${#AVAILABLE[@]} -eq 0 ]; then
+    for script in "$SCRIPTS_DIR"/*.sh; do
+      name=$(basename -- "$script")
+      name="${name%.*}"
+      AVAILABLE+=("$name")
+      PKG_DESC["$name"]="$name"
+    done
+  fi
+}
+
+ensure_state_file() {
+  local target="$STATE_FILE"
+  local dir
+  dir=$(dirname "$target")
+  if try_run_sudo mkdir -p "$dir" && try_run_sudo touch "$target"; then
+    return
+  fi
+
+  if [ "$target" = "$STATE_FILE_DEFAULT" ]; then
+    local fallback="${HOME:-/tmp}/.devops-pkg/installed.list"
+    echo "Aviso: sem permissão para usar $STATE_FILE. Usando $fallback" >&2
+    STATE_FILE="$fallback"
+    dir=$(dirname "$STATE_FILE")
+    mkdir -p "$dir" && touch "$STATE_FILE"
+  else
+    echo "Erro: não foi possível criar o arquivo de estado em $STATE_FILE" >&2
+    exit 1
+  fi
+}
+
+is_marked_installed() {
+  ensure_state_file
+  grep -Fxq "$1" "$STATE_FILE" 2>/dev/null
+}
+
+mark_installed() {
+  ensure_state_file
+  if ! grep -Fxq "$1" "$STATE_FILE"; then
+    echo "$1" >> "$STATE_FILE"
+  fi
+}
+
+require_packages_exist() {
+  local missing=()
+  for pkg in "$@"; do
+    if [ ! -f "$SCRIPTS_DIR/$pkg.sh" ]; then
+      missing+=("$pkg")
+    fi
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "Pacote(s) não encontrados em $SCRIPTS_DIR: ${missing[*]}" >&2
+    exit 1
+  fi
+}
+
+print_list() {
+  load_packages
+  local only_installed=false
+  if [ "${1-}" = "--installed" ]; then
+    only_installed=true
+  fi
+
+  # Conta filtrando instalados se necessário
+  local count=0
+  for pkg in "${AVAILABLE[@]}"; do
+    if $only_installed; then
+      is_marked_installed "$pkg" || continue
+    fi
+    count=$((count+1))
+  done
+
+  if $only_installed; then
+    printf -- "Pacotes instalados (%d):\n" "$count"
+  else
+    printf -- "Pacotes disponíveis (%d):\n" "${#AVAILABLE[@]}"
+  fi
+
+  for pkg in "${AVAILABLE[@]}"; do
+    if $only_installed && ! is_marked_installed "$pkg"; then
+      continue
+    fi
+    printf -- "- %-16s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
   done
 }
 
-# Verifica se o nome do pacote foi fornecido
-if [ -z "$1" ]; then
-  echo "Uso: $0 <list|nome_do_pacote>"
-  exit 1
-fi
+print_status() {
+  load_packages
+  printf -- "Status dos pacotes:\n"
+  for pkg in "${AVAILABLE[@]}"; do
+    if is_marked_installed "$pkg"; then
+      printf -- "[instalado] %-14s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
+    else
+      printf -- "[pendente ] %-14s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
+    fi
+  done
+}
 
-# Ação solicitada pelo usuário
-ACTION="$1"
-
-if [ "$ACTION" == "list" ]; then
-  # Lista os pacotes disponíveis
-  list_packages
-else
-  # Nome do pacote fornecido como argumento
-  PACKAGE_NAME="$ACTION"
-
-  # Verifica se o pacote está na lista de scripts disponíveis
-  if [ -f "$SCRIPTS_DIR/$PACKAGE_NAME.sh" ]; then
-    # Executa o script com sudo
-    sudo "$SCRIPTS_DIR/$PACKAGE_NAME.sh"
-    echo "Pacote '$PACKAGE_NAME' instalado com sucesso."
-  else
-    echo "Pacote '$PACKAGE_NAME' não encontrado."
+print_info() {
+  load_packages
+  local pkg="${1:-}"
+  if [ -z "$pkg" ]; then
+    echo "Uso: $0 info <pacote>" >&2
     exit 1
   fi
+  require_packages_exist "$pkg"
+  local desc="${PKG_DESC[$pkg]:-$pkg}"
+  local script_path="$SCRIPTS_DIR/$pkg.sh"
+  local status="pendente"
+  if is_marked_installed "$pkg"; then
+    status="instalado"
+  fi
+  cat <<EOF
+Pacote:      $pkg
+Descrição:   $desc
+Script:      $script_path
+Status:      $status (via pkg_add)
+EOF
+}
+
+install_packages() {
+  local force=false all=false
+  local args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f) force=true ;;
+      --all) all=true ;;
+      *) args+=("$1") ;;
+    esac
+    shift
+  done
+
+  load_packages
+  local targets=("${args[@]}")
+  if $all; then
+    targets=("${AVAILABLE[@]}")
+  fi
+
+  if [ ${#targets[@]} -eq 0 ]; then
+    echo "Uso: $0 install [--all] [--force] <pacote> [pacote...]" >&2
+    exit 1
+  fi
+
+  require_packages_exist "${targets[@]}"
+
+  for pkg in "${targets[@]}"; do
+    local script_path="$SCRIPTS_DIR/$pkg.sh"
+    if is_marked_installed "$pkg" && ! $force; then
+      echo "Pulando $pkg (já marcado como instalado). Use --force para reinstalar."
+      continue
+    fi
+    echo "Instalando pacote: $pkg"
+    try_run_sudo "$script_path"
+    mark_installed "$pkg"
+    echo "Pacote '$pkg' instalado."
+  done
+}
+
+update_packages() {
+  if [ -z "$PKG_REMOTE_INDEX" ] || [ -z "$PKG_REMOTE_SCRIPTS_DIR" ]; then
+    echo "PKG_REMOTE_INDEX e PKG_REMOTE_SCRIPTS_DIR não configurados. Nada a fazer." >&2
+    exit 1
+  fi
+  mkdir -p "$SCRIPTS_DIR"
+  echo "Baixando manifesto de pacotes..."
+  curl -fLs "$PKG_REMOTE_INDEX" -o "$PKG_INDEX"
+  echo "Manifesto atualizado em $PKG_INDEX"
+
+  while IFS=$'\t' read -r name _; do
+    [[ -z "${name:-}" || "${name:0:1}" == "#" ]] && continue
+    url="${PKG_REMOTE_SCRIPTS_DIR}/${name}.sh"
+    dest="$SCRIPTS_DIR/${name}.sh"
+    echo "Baixando ${name}.sh..."
+    curl -fLs "$url" -o "$dest"
+    chmod +x "$dest"
+  done < "$PKG_INDEX"
+  echo "Scripts atualizados em $SCRIPTS_DIR"
+}
+
+disable_packages() {
+  if [ $# -eq 0 ]; then
+    echo "Uso: $0 disable <pacote> [pacote...]" >&2
+    exit 1
+  fi
+
+  load_packages
+  require_packages_exist "$@"
+  ensure_state_file
+
+  local tmp filtered
+  tmp=$(mktemp)
+  filtered=$(mktemp)
+
+  if ! cat "$STATE_FILE" > "$tmp" 2>/dev/null; then
+    try_run_sudo cat "$STATE_FILE" > "$tmp" || { echo "Erro ao ler $STATE_FILE" >&2; exit 1; }
+  fi
+
+  local disabled_any=false
+  while IFS= read -r line; do
+    local skip=false
+    for pkg in "$@"; do
+      if [ "$line" = "$pkg" ]; then
+        skip=true
+        disabled_any=true
+        break
+      fi
+    done
+    $skip || printf "%s\n" "$line" >> "$filtered"
+  done < "$tmp"
+
+  if ! try_run_sudo install -m 0644 "$filtered" "$STATE_FILE"; then
+    install -m 0644 "$filtered" "$STATE_FILE"
+  fi
+
+  rm -f "$tmp" "$filtered"
+
+  if $disabled_any; then
+    echo "Pacote(s) desabilitado(s). Eles não serão considerados 'instalados' em futuras execuções (não remove binários)."
+  else
+    echo "Nenhum pacote listado estava marcado como instalado."
+  fi
+}
+
+if [ $# -lt 1 ]; then
+  usage; exit 1
 fi
+
+COMMAND="$1"; shift || true
+
+case "$COMMAND" in
+  list)
+    print_list "$@"
+    ;;
+  status)
+    print_status
+    ;;
+  info)
+    print_info "$@"
+    ;;
+  install)
+    install_packages "$@"
+    ;;
+  disable)
+    disable_packages "$@"
+    ;;
+  update)
+    update_packages
+    ;;
+  *)
+    usage; exit 1 ;;
+esac
