@@ -1,0 +1,93 @@
+#!/bin/bash
+set -euo pipefail
+
+APT_LIST_FILE="${APT_LIST_FILE:-/var/lib/devops-pkg/apt-packages.list}"
+
+try_run_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    echo "Erro: é necessário privilégio de root ou sudo para executar: $*" >&2
+    return 1
+  fi
+}
+
+usage() {
+  cat >&2 <<EOF
+Uso: $0 <comando> [args]
+
+Comandos:
+  list               Lista pacotes rastreados para instalação persistente
+  add <pkg> [...]    Adiciona pacote(s) à lista
+  remove <pkg> [...] Remove pacote(s) da lista
+  apply              Instala todos os pacotes listados (idempotente)
+
+Variáveis:
+  APT_LIST_FILE (padrão: /var/lib/devops-pkg/apt-packages.list)
+EOF
+}
+
+ensure_file() {
+  mkdir -p "$(dirname "$APT_LIST_FILE")"
+  touch "$APT_LIST_FILE"
+}
+
+list_pkgs() {
+  ensure_file
+  if [ ! -s "$APT_LIST_FILE" ]; then
+    echo "(vazio)"
+    return
+  fi
+  cat "$APT_LIST_FILE"
+}
+
+add_pkgs() {
+  ensure_file
+  if [ $# -lt 1 ]; then usage; exit 1; fi
+  for pkg in "$@"; do
+    if ! grep -Fxq "$pkg" "$APT_LIST_FILE"; then
+      echo "$pkg" >> "$APT_LIST_FILE"
+      echo "Adicionado: $pkg"
+    else
+      echo "Já na lista: $pkg"
+    fi
+  done
+}
+
+remove_pkgs() {
+  ensure_file
+  if [ $# -lt 1 ]; then usage; exit 1; fi
+  tmp=$(mktemp)
+  cp "$APT_LIST_FILE" "$tmp"
+  for pkg in "$@"; do
+    grep -Fxv "$pkg" "$tmp" > "$tmp.new" || true
+    mv "$tmp.new" "$tmp"
+    echo "Removido da lista (se existia): $pkg"
+  done
+  mv "$tmp" "$APT_LIST_FILE"
+}
+
+apply_pkgs() {
+  ensure_file
+  mapfile -t pkgs < <(grep -vE '^\s*(#|$)' "$APT_LIST_FILE" || true)
+  if [ ${#pkgs[@]} -eq 0 ]; then
+    echo "Nenhum pacote na lista."
+    return
+  fi
+  echo "Instalando via apt: ${pkgs[*]}"
+  try_run_sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
+  try_run_sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
+}
+
+cmd="${1-}"
+shift || true
+
+case "$cmd" in
+  list) list_pkgs ;;
+  add) add_pkgs "$@" ;;
+  remove) remove_pkgs "$@" ;;
+  apply) apply_pkgs ;;
+  *) usage; exit 1 ;;
+esac

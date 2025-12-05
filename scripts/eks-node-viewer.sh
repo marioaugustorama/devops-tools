@@ -3,35 +3,29 @@
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
-# Define variáveis
 REPO="awslabs/eks-node-viewer"
-BINARY_NAME="kubebox-linux"
 INSTALL_PATH="/usr/local/bin/eks-node-viewer"
+TMP_FILE="eks-node-viewer"
 
-# Obtém a URL do último lançamento para o sistema Linux
 echo "Obtendo a URL de download para o EKS Node Viewer..."
 DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
-    grep browser_download_url | grep linux | cut -d '"' -f 4)
+  jq -r '.assets[] | select(.name | test("Linux_x86_64$")) | .browser_download_url' | head -n1)
 
-if [ -z "$DOWNLOAD_URL" ]; then
+if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
     error_exit "Não foi possível obter a URL de download do EKS Node Viewer."
 fi
 
-# Baixa o binário do EKS Node Viewer
 echo "Baixando EKS Node Viewer..."
-curl -sL "$DOWNLOAD_URL" -o "$BINARY_NAME" || error_exit "Falha ao baixar o EKS Node Viewer"
+curl -fLs "$DOWNLOAD_URL" -o "$TMP_FILE" || error_exit "Falha ao baixar o EKS Node Viewer"
 
-# Verifica se o arquivo foi baixado corretamente
-if [ ! -f "$BINARY_NAME" ]; then
-    error_exit "O binário $BINARY_NAME não foi encontrado."
+if [ ! -f "$TMP_FILE" ]; then
+    error_exit "O binário $TMP_FILE não foi encontrado."
 fi
 
-# Instala o EKS Node Viewer
 echo "Instalando EKS Node Viewer..."
-install -o root -g root -m 0755 "$BINARY_NAME" "$INSTALL_PATH" || error_exit "Falha ao instalar o EKS Node Viewer"
+install -o root -g root -m 0755 "$TMP_FILE" "$INSTALL_PATH" || error_exit "Falha ao instalar o EKS Node Viewer"
 
-# Limpeza
 echo "Limpando arquivos temporários..."
-rm -f "$BINARY_NAME" || error_exit "Falha ao limpar arquivos temporários"
+rm -f "$TMP_FILE" || error_exit "Falha ao limpar arquivos temporários"
 
 echo "Instalação do EKS Node Viewer concluída com sucesso."

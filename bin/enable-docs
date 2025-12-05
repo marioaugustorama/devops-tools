@@ -1,0 +1,53 @@
+#!/bin/bash
+set -euo pipefail
+
+require_root() {
+  if [ "$EUID" -eq 0 ]; then
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    exec sudo "$0" "$@"
+  else
+    echo "Este comando precisa ser executado como root ou com sudo." >&2
+    exit 1
+  fi
+}
+
+main() {
+  require_root "$@"
+
+  local nodoc="/etc/dpkg/dpkg.cfg.d/01_nodoc"
+  if [ -f "$nodoc" ]; then
+    mv "$nodoc" "${nodoc}.disabled"
+    echo "Arquivo $nodoc desativado (exclusão de documentação removida)."
+  fi
+
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y man-db manpages manpages-posix manpages-dev
+
+  local core_pkgs=(
+    coreutils
+    findutils
+    util-linux
+    procps
+    iproute2
+    net-tools
+    iputils-ping
+    grep
+    sed
+    gawk
+    bash
+    tar
+    gzip
+  )
+
+  echo "Reinstalando pacotes-base para restaurar manuais..."
+  apt-get install --reinstall -y "${core_pkgs[@]}"
+
+  echo "Atualizando base de manuais..."
+  mandb -cq || true
+  echo "Manuais habilitados. Teste com: man ls"
+}
+
+main "$@"

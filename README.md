@@ -91,3 +91,86 @@ A partir do Host:
 
 Vai gerar um backup com data e hora da execução, permitindo assim salvar seus dados e configurações gerados a partir do container.
 
+### Gerenciador de pacotes interno (`pkg_add`)
+
+- Listar catálogo: `pkg_add list`
+- Listar apenas instalados (persistidos): `pkg_add list --installed`
+- Ver status (instalado/pendente): `pkg_add status`
+- Detalhar um pacote: `pkg_add info <nome>`
+- Instalar tudo: `pkg_add install --all`
+- Instalar pacotes específicos: `pkg_add install kubectl helm doctl` (use `--force` para reinstalar)
+- Desabilitar marcação de instalado (não desinstala): `pkg_add disable eksctl`
+
+Os pacotes são definidos em `scripts/packages.tsv` (nome + descrição) e cada instalador mora em `scripts/<nome>.sh`.
+
+#### Auto-instalação na subida do container
+- Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/auto-install.list` (pkg_add) e `pkg_state/apt-packages.list` (apt). Linhas em branco ou começando com `#` são ignoradas.
+- Edite esses arquivos no host para listar apenas o que quer auto-instalar. Exemplos:
+  - `pkg_state/auto-install.list`: `kubectl`, `helm`, `k9s`
+  - `pkg_state/apt-packages.list`: `traceroute`, `nmap`
+- Suba o container com `PKG_AUTO_RESTORE=1 ./run.sh ...` para aplicar essas listas automaticamente. Combine com `PKG_LAZY_INSTALL=0` se não quiser instalação sob demanda via `command_not_found`.
+
+### Como adicionar um novo pacote
+
+1. Criar o instalador em `scripts/<nome>.sh` (bash, `set -euo pipefail`, idempotente).
+2. Adicionar o pacote ao manifesto `scripts/packages.tsv` com uma descrição curta.
+3. Opcional: testar no container com `pkg_add install <nome>` e confirmar que roda repetidamente sem falhar.
+4. Atualizar a imagem ou rodar `run_all.sh` para incluir no build.
+
+#### Boilerplate para novo instalador (`scripts/exemplo.sh`)
+```bash
+#!/bin/bash
+set -euo pipefail
+source /usr/local/bin/utils.sh
+
+APP_VERSION="1.2.3"
+URL="https://exemplo.com/app-${APP_VERSION}-linux-amd64.tar.gz"
+TMP="app.tar.gz"
+
+echo "Baixando app ${APP_VERSION}..."
+curl -fLs "$URL" -o "$TMP" || error_exit "download falhou"
+
+echo "Extraindo..."
+tar xzf "$TMP"
+
+echo "Instalando..."
+install -o root -g root -m 0755 app /usr/local/bin/app || error_exit "install falhou"
+
+echo "Limpando..."
+rm -rf "$TMP" app
+```
+
+#### Checklist de idempotência
+- Evite falhar se já instalado (detectar binário/versão e sair cedo quando apropriado).
+- Use `set -euo pipefail` e `error_exit` para mensagens claras.
+- Limpe artefatos temporários mesmo em reexecuções (remova antes de extrair).
+- Prefira URLs versionadas e validação (checksum) quando possível.
+
+### Pacotes apt persistentes do dia a dia
+
+Use o helper `pkg_apt` (estado em `pkg_state/apt-packages.list`, montado em `/var/lib/devops-pkg`):
+
+- Adicionar pacote(s): `pkg_apt add traceroute nmap`
+- Ver lista: `pkg_apt list`
+- Remover: `pkg_apt remove nmap`
+- Aplicar/instalar todos os listados: `pkg_apt apply` (automático no start do container)
+
+Os pacotes listados serão reinstalados automaticamente quando o container subir novamente, sem rebuild da imagem.
+
+### Habilitar manuais (`man`)
+- Rode `sudo enable-docs` para remover a exclusão de documentação e instalar `man-db` + `manpages`.
+- Depois teste com `man ls` ou `man vim`.
+
+### Editor de hosts (`hosts-editor`)
+
+- Adicionar entrada: `sudo hosts-editor add 127.0.0.1 meu.servico.local api.local`
+- Remover host(s): `sudo hosts-editor remove meu.servico.local api.local`
+- Listar atual: `hosts-editor list`
+- Variáveis úteis: `HOSTS_FILE` para usar outro arquivo (ex.: `HOSTS_FILE=./home/hosts hosts-editor add ...`); use `--no-backup` para pular backup automático.
+- Por padrão cria um `.bak` com timestamp ao lado do arquivo alterado; alterar `/etc/hosts` pede permissão (sudo).
+
+### VPN dentro do container (WireGuard)
+- Pacote: `wireguard-tools` no catálogo (`pkg_add install wireguard-tools` ou `pkg_apt add wireguard-tools`).
+- Configs e chave: monte `./vpn-configs` em `/etc/wireguard` e use `./wireguard-keys` para guardar a chave fornecida pelo servidor (montado em `/etc/wireguard/keys`).
+- Execução: `./run.sh` já adiciona `NET_ADMIN`, `/dev/net/tun` e monta os volumes acima. Se precisar rotear tráfego (NAT/forwarding), suba com `ENABLE_WG_FORWARDING=1 ./run.sh ...` para aplicar os sysctls.
+- Uso dentro do container: `wg-quick up wg0` / `wg-quick down wg0` (conf com `PrivateKey = /etc/wireguard/keys/<arquivo>`).

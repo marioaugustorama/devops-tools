@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+shopt -s nullglob
 
 # Diretório onde os scripts estão localizados
 SCRIPT_DIR="/usr/local/scripts"
@@ -16,14 +18,16 @@ log_message "Iniciando a execução dos scripts em $SCRIPT_DIR"
 
 # Itera sobre todos os scripts .sh no diretório especificado
 for script in "$SCRIPT_DIR"/*.sh; do
+    base="$(basename "$script")"
+    # Pula utilitários que não são instaladores
+    if [[ "$base" == "version.sh" ]]; then
+        log_message "Pulando $base (utilitário de versão)."
+        continue
+    fi
     if [ -x "$script" ]; then
         log_message "Executando o script: $script"
         "$script"
-        if [ $? -eq 0 ]; then
-            log_message "Script $script executado com sucesso."
-        else
-            log_message "Erro ao executar o script $script."
-        fi
+        log_message "Script $script executado com sucesso."
     else
         log_message "O arquivo $script não é executável ou não existe."
     fi

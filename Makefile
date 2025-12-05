@@ -28,6 +28,7 @@ help:
 	@echo "  run            Run using run.sh with IMAGE/TAG"
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
+	@echo "  clean          Clean last builds"
 	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS"
 	@echo "Examples:"
 	@echo "  make build TAG=v1.17.0"
@@ -72,3 +73,6 @@ bump-major:
 
 version:
 	@./scripts/version.sh show
+
+clean: 
+	docker system prune
