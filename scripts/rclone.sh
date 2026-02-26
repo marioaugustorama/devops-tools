@@ -1,17 +1,16 @@
 #!/bin/bash
+set -euo pipefail
 
 source /usr/local/bin/utils.sh
 
-REPO="rclone/rclone"
-VERSION_PATTERN='(?<=/v)[0-9]+\.[0-9]+\.[0-9]+'
+RCLONE_VERSION="${RCLONE_VERSION:-v1.73.0}"
 
-latest_version=$(get_latest_version "$REPO" "$VERSION_PATTERN")
+FILENAME="rclone-${RCLONE_VERSION}-linux-amd64.zip"
+DOWNLOAD_URL="https://downloads.rclone.org/${RCLONE_VERSION}/${FILENAME}"
 
-FILENAME="rclone-${latest_version}-linux-amd64.zip"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILENAME" "${DOWNLOAD_URL}" || error_exit "Falha ao baixar o rclone"
+unzip -o "$FILENAME" || error_exit "Falha ao extrair o rclone"
+install -o root -g root -m 0755 "rclone-${RCLONE_VERSION}-linux-amd64/rclone" /usr/local/bin || error_exit "Falha ao instalar o rclone"
+rm -rf "$FILENAME" "rclone-${RCLONE_VERSION}-linux-amd64"
 
-DOWNLOAD_URL="https://downloads.rclone.org/${latest_version}/${FILENAME}"
-
-curl -LO "${DOWNLOAD_URL}"
-unzip $FILENAME || error_exit "Falha ao extrair o arquivo TAR"
-install -o root -g root -m 0755 rclone-${latest_version}-linux-amd64/rclone /usr/local/bin
-rm -rf rclone-${latest_version}-linux-amd64.zip rclone-${latest_version}-linux-amd64
+echo "rclone ${RCLONE_VERSION} instalado com sucesso."

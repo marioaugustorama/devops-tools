@@ -1,10 +1,11 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
 # Defina a versão e o arquivo para download
-VERSION="1.9.3"
+VERSION="${TERRAFORM_VERSION:-1.14.3}"
 FILENAME="terraform_${VERSION}_linux_amd64.zip"
 DOWNLOAD_URL="https://releases.hashicorp.com/terraform/${VERSION}/${FILENAME}"
 BINARY_NAME="terraform"
@@ -12,7 +13,7 @@ BINARY_NAME="terraform"
 echo "Baixando Terraform versão ${VERSION}..."
 
 # Baixa o arquivo
-curl -sLO "$DOWNLOAD_URL" || error_exit "Falha ao baixar o Terraform"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILENAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o Terraform"
 
 # Verifica se o arquivo foi baixado corretamente
 if [ ! -f "$FILENAME" ]; then

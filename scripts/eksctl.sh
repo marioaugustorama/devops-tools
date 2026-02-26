@@ -1,17 +1,19 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
 # Define variáveis
 FILE_NAME="eksctl_linux_amd64.tar.gz"
+EKSCTL_VERSION="${EKSCTL_VERSION:-0.220.0}"
 
 # URL de download para o arquivo
-DOWNLOAD_URL="https://github.com/eksctl-io/eksctl/releases/latest/download/${FILE_NAME}"
+DOWNLOAD_URL="https://github.com/eksctl-io/eksctl/releases/download/v${EKSCTL_VERSION}/${FILE_NAME}"
 
 # Baixa o arquivo
 echo "Baixando eksctl..."
-curl -sLO "$DOWNLOAD_URL" || error_exit "Falha ao baixar o eksctl"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILE_NAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o eksctl"
 
 # Verifica se o arquivo foi baixado corretamente
 if [ ! -f "$FILE_NAME" ]; then
@@ -35,4 +37,4 @@ install -o root -g root -m 0755 eksctl /usr/local/bin/ || error_exit "Falha ao i
 echo "Limpando arquivos temporários..."
 rm -rf "$FILE_NAME" eksctl || error_exit "Falha ao limpar arquivos temporários"
 
-echo "Instalação do eksctl concluída com sucesso."
+echo "Instalação do eksctl ${EKSCTL_VERSION} concluída com sucesso."
