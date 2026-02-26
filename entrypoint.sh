@@ -12,6 +12,8 @@ PKG_INDEX="${PKG_INDEX:-/usr/local/scripts/packages.tsv}"
 PKG_AUTO_RESTORE="${PKG_AUTO_RESTORE:-0}"
 PKG_LAZY_INSTALL="${PKG_LAZY_INSTALL:-1}"
 LAZY_LOADER_FILE="/tools/.pkg_add_lazy.sh"
+BACKUP_WEB_AUTOSTART="${BACKUP_WEB_AUTOSTART:-1}"
+BACKUP_WEB_LOG="${BACKUP_WEB_LOG:-/var/log/backup-web.log}"
 
 # Função para garantir que o arquivo de estado exista e seja gravável,
 # com fallback para $HOME se o volume estiver somente leitura ou com owner incorreto.
@@ -163,9 +165,38 @@ EOF
 
 create_lazy_loader
 
+start_backup_web_if_enabled() {
+    if [ "$BACKUP_WEB_AUTOSTART" = "0" ]; then
+        return
+    fi
+
+    if ! command -v backup-web >/dev/null 2>&1; then
+        return
+    fi
+
+    if [ ! -d "/backup" ]; then
+        echo "[entrypoint] /backup não encontrado; backup-web não iniciado." >&2
+        return
+    fi
+
+    if pgrep -f "[/]usr/local/bin/backup-web" >/dev/null 2>&1; then
+        return
+    fi
+
+    local log_path="$BACKUP_WEB_LOG"
+    if ! touch "$log_path" 2>/dev/null; then
+        log_path="/tools/.backup-web.log"
+        touch "$log_path" 2>/dev/null || true
+    fi
+
+    echo "[entrypoint] Iniciando backup-web em background (log: $log_path)" >&2
+    nohup /usr/local/bin/backup-web >> "$log_path" 2>&1 &
+}
+
 # Se houver argumentos, execute-os como um comando
 if [ "$#" -gt 0 ]; then
     exec "$@"
 else
+    start_backup_web_if_enabled
     exec bash
 fi

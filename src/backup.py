@@ -28,8 +28,8 @@ def backup_name():
     return f"tools-backup-{current_date}.tar.xz"
 
 
-def make_backup(directory, filename):
-    out_path = f"/backup/{filename}"
+def make_backup(directory, filename, backup_dir="/backup"):
+    out_path = os.path.join(backup_dir, filename)
     # Excluir diretórios comuns que não interessam no backup do workspace
     excludes = [
         "--exclude=.cache",
@@ -52,6 +52,7 @@ def make_backup(directory, filename):
         subprocess.run(command, check=True)
 
         print(f"Backup criado com sucesso: {out_path}")
+        return out_path
 
     except subprocess.CalledProcessError as e:
         print(f"Erro ao criar o backup: {e}", file=sys.stderr)
@@ -64,14 +65,15 @@ def main():
         sys.exit(1)
 
     dir_to_backup = "/tools"
+    backup_dir = "/backup"
 
     # Verifica destino
-    if not os.path.isdir("/backup"):
+    if not os.path.isdir(backup_dir):
         print("Diretório /backup não encontrado. Monte um volume em /backup.", file=sys.stderr)
         sys.exit(1)
 
     filename = backup_name()
-    make_backup(dir_to_backup, filename)
+    make_backup(dir_to_backup, filename, backup_dir=backup_dir)
 
 
 if __name__ == "__main__":

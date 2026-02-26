@@ -42,6 +42,7 @@ show_help() {
     echo "Exemplos:"
     echo "  $0               Inicia um shell interativo (bash) dentro do container Docker."
     echo "  $0 backup        Executa o script backup dentro do container Docker."
+    echo "  $0 backup-web    Sobe serviço HTTP de backup no container (porta 30000)."
 }
 
 
