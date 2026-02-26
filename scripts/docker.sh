@@ -8,8 +8,15 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 # Instala rapidamente o cliente/daemon padrão
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
+DOCKER_INSTALL_SCRIPT="get-docker.sh"
+DOCKER_VERSION="${DOCKER_VERSION:-}"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$DOCKER_INSTALL_SCRIPT" https://get.docker.com
+if [ -n "$DOCKER_VERSION" ]; then
+  sh "$DOCKER_INSTALL_SCRIPT" --version "$DOCKER_VERSION"
+else
+  sh "$DOCKER_INSTALL_SCRIPT"
+fi
+rm -f "$DOCKER_INSTALL_SCRIPT"
 
 usermod -aG docker devops
 

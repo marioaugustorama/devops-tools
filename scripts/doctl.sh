@@ -1,28 +1,18 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
 # Define variáveis
 DOCTL_BIN="doctl"
-REPO="digitalocean/doctl"
-VERSION_PATTERN='(?<=/v)[0-9]+\.[0-9]+\.[0-9]+'
-
-# Obtém a última versão
-latest_version=$(get_latest_version "$REPO" "$VERSION_PATTERN")
-
-if [ $? -eq 0 ]; then
-    DOCTL_TAR="doctl-${latest_version#v}-linux-amd64.tar.gz"
-    DOCTL_URL="https://github.com/${REPO}/releases/download/${latest_version}/${DOCTL_TAR}"
-
-    echo "URL para download da versão ${latest_version}: $DOCTL_URL"
-else
-    echo "Erro ao obter a última versão."
-fi
+DOCTL_VERSION="${DOCTL_VERSION:-1.146.0}"
+DOCTL_TAR="doctl-${DOCTL_VERSION}-linux-amd64.tar.gz"
+DOCTL_URL="https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/${DOCTL_TAR}"
 
 # Baixa o arquivo do doctl
 echo "Baixando doctl..."
-curl -LO "$DOCTL_URL" || error_exit "Falha ao baixar o doctl"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$DOCTL_TAR" "$DOCTL_URL" || error_exit "Falha ao baixar o doctl"
 
 # Verifica se o arquivo tar foi baixado corretamente
 if [ ! -f "$DOCTL_TAR" ]; then
@@ -46,4 +36,4 @@ install -o root -g root -m 0755 "$DOCTL_BIN" /usr/local/bin/ || error_exit "Falh
 echo "Limpando arquivos temporários..."
 rm -rf "$DOCTL_TAR" "$DOCTL_BIN" || error_exit "Falha ao limpar arquivos temporários"
 
-echo "Instalação do doctl concluída com sucesso."
+echo "Instalação do doctl ${DOCTL_VERSION} concluída com sucesso."

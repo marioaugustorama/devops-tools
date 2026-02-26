@@ -1,24 +1,17 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
 # Define variáveis
-REPO="derailed/k9s"
+K9S_VERSION="${K9S_VERSION:-v0.50.16}"
 PACKAGE_NAME="k9s_linux_amd64.deb"
-
-# Obtém a URL do último lançamento para o sistema Linux (arquitetura amd64)
-echo "Obtendo a URL de download para o K9s..."
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
-    grep browser_download_url | grep linux_amd64.deb | cut -d '"' -f 4)
-
-if [ -z "$DOWNLOAD_URL" ]; then
-    error_exit "Não foi possível obter a URL de download do K9s."
-fi
+DOWNLOAD_URL="https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/${PACKAGE_NAME}"
 
 # Baixa o pacote .deb do K9s
 echo "Baixando K9s..."
-curl -sL "$DOWNLOAD_URL" -o "$PACKAGE_NAME" || error_exit "Falha ao baixar o K9s"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$PACKAGE_NAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o K9s"
 
 # Verifica se o arquivo foi baixado corretamente
 if [ ! -f "$PACKAGE_NAME" ]; then
@@ -33,4 +26,4 @@ dpkg -i "$PACKAGE_NAME" || error_exit "Falha ao instalar o K9s"
 echo "Limpando arquivos temporários..."
 rm -f "$PACKAGE_NAME" || error_exit "Falha ao limpar arquivos temporários"
 
-echo "Instalação do K9s concluída com sucesso."
+echo "Instalação do K9s ${K9S_VERSION} concluída com sucesso."

@@ -2,6 +2,29 @@
 
 A distribuição foi projetada para atender às necessidades de profissionais e estudantes de DevOps e Networking, oferecendo uma seleção abrangente e atualizada das melhores ferramentas disponíveis no mercado. Ao reunir todas essas ferramentas em um único local, a distribuição visa agilizar o processo de configuração e implantação de ambientes DevOps. Isso elimina a necessidade de procurar e instalar cada ferramenta individualmente, proporcionando conveniência e economizando tempo. Com uma variedade de ferramentas essenciais já integradas e prontas para uso, os usuários podem começar a trabalhar rapidamente em seus projetos DevOps, aumentando sua produtividade e eficiência.
 
+## Makefile (build/push/run)
+
+Alvos principais:
+- `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`.
+- `make push [TAG=...]` publica a imagem atual.
+- `make tag-latest` marca a imagem atual como `latest` e envia.
+- `make run [TAG=...]` sobe o container via `run.sh` com `IMAGE/TAG` definidos.
+- Bumps de versão: `make bump-patch|bump-minor|bump-major` (atualizam `version` via `scripts/version.sh`).
+- Auxiliares: `make build-br` (espelho BR), `make build-insecure` (sem checksum estrito), `make version` (mostra versão), `make clean` (limpa cache Docker).
+
+Exemplos rápidos:
+```bash
+# Build com tag atual do arquivo version
+make build
+# Build com mirror BR e tag específica
+make build TAG=v1.18.5 APT_MIRROR=http://br.archive.ubuntu.com/ubuntu
+# Publicar a tag e marcar latest
+make push TAG=v1.18.5
+make tag-latest TAG=v1.18.5
+# Rodar localmente a imagem recém-buildada
+make run TAG=v1.18.5
+```
+
 
 ## Ferramentas Disponíveis
 

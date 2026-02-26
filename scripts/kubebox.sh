@@ -1,25 +1,18 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
 # Define variáveis
-REPO="astefanutti/kubebox"
+KUBEBOX_VERSION="${KUBEBOX_VERSION:-v0.10.0}"
 BINARY_NAME="kubebox-linux"
 INSTALL_PATH="/usr/local/bin/kubebox"
-
-# Obtém a URL do último lançamento para o sistema Linux
-echo "Obtendo a URL de download para o Kubebox..."
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
-    grep browser_download_url | grep linux | cut -d '"' -f 4)
-
-if [ -z "$DOWNLOAD_URL" ]; then
-    error_exit "Não foi possível obter a URL de download do Kubebox."
-fi
+DOWNLOAD_URL="https://github.com/astefanutti/kubebox/releases/download/${KUBEBOX_VERSION}/${BINARY_NAME}"
 
 # Baixa o binário do Kubebox
 echo "Baixando Kubebox..."
-curl -sL "$DOWNLOAD_URL" -o "$BINARY_NAME" || error_exit "Falha ao baixar o Kubebox"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$BINARY_NAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o Kubebox"
 
 # Verifica se o arquivo foi baixado corretamente
 if [ ! -f "$BINARY_NAME" ]; then
@@ -34,4 +27,4 @@ install -o root -g root -m 0755 "$BINARY_NAME" "$INSTALL_PATH" || error_exit "Fa
 echo "Limpando arquivos temporários..."
 rm -f "$BINARY_NAME" || error_exit "Falha ao limpar arquivos temporários"
 
-echo "Instalação do Kubebox concluída com sucesso."
+echo "Instalação do Kubebox ${KUBEBOX_VERSION} concluída com sucesso."

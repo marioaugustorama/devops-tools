@@ -1,31 +1,24 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
-# Define a URL para o script de instalação do OpenTofu
-INSTALL_SCRIPT_URL="https://get.opentofu.org/install-opentofu.sh"
-INSTALL_SCRIPT_PATH="/tmp/install-opentofu.sh"
+TOFU_VERSION="${TOFU_VERSION:-1.11.1}"
+FILENAME="tofu_${TOFU_VERSION}_linux_amd64.zip"
+DOWNLOAD_URL="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/${FILENAME}"
 
-# Baixa o script de instalação
-echo "Baixando script de instalação do OpenTofu..."
-curl --proto '=https' --tlsv1.2 -fsSL "$INSTALL_SCRIPT_URL" -o "$INSTALL_SCRIPT_PATH" || error_exit "Falha ao baixar o script de instalação do OpenTofu"
+echo "Baixando OpenTofu ${TOFU_VERSION}..."
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILENAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar OpenTofu"
 
-# Verifica se o script foi baixado corretamente
-if [ ! -f "$INSTALL_SCRIPT_PATH" ]; then
-    error_exit "O script de instalação $INSTALL_SCRIPT_PATH não foi encontrado."
-fi
+echo "Extraindo OpenTofu..."
+unzip -o "$FILENAME" tofu || error_exit "Falha ao extrair OpenTofu"
 
-# Concede permissão de execução ao script
-echo "Concedendo permissão de execução ao script de instalação..."
-chmod +x "$INSTALL_SCRIPT_PATH" || error_exit "Falha ao conceder permissão de execução ao script de instalação"
+echo "Instalando OpenTofu..."
+install -o root -g root -m 0755 tofu /usr/local/bin/tofu || error_exit "Falha ao instalar tofu"
+ln -sf /usr/local/bin/tofu /usr/local/bin/opentofu || error_exit "Falha ao criar symlink opentofu"
 
-# Executa o script de instalação
-echo "Executando o script de instalação do OpenTofu..."
-"$INSTALL_SCRIPT_PATH" --install-method deb || error_exit "Falha ao instalar o OpenTofu"
-
-# Limpeza
 echo "Limpando arquivos temporários..."
-rm -rf "$INSTALL_SCRIPT_PATH" || error_exit "Falha ao limpar arquivos temporários"
+rm -f "$FILENAME" tofu
 
-echo "Instalação do OpenTofu concluída com sucesso."
+echo "Instalação do OpenTofu ${TOFU_VERSION} concluída com sucesso."

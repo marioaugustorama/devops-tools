@@ -1,20 +1,17 @@
 #!/bin/bash
+set -euo pipefail
 
 # Carrega as funções auxiliares do utils.sh
 source /usr/local/bin/utils.sh
 
-REPO="hashicorp/vault"
-VERSION_PATTERN='(?<=/v)[0-9]+\.[0-9]+\.[0-9]+'
+VERSION="${VAULT_VERSION:-1.21.1}"
 
-latest_version=$(get_latest_version "$REPO" "$VERSION_PATTERN")
-latest_version="${latest_version#v}"
+FILENAME="vault_${VERSION}_linux_amd64.zip"
 
-FILENAME="vault_${latest_version}_linux_amd64.zip"
-
-DOWNLOAD_URL="https://releases.hashicorp.com/vault/${latest_version}/${FILENAME}"
+DOWNLOAD_URL="https://releases.hashicorp.com/vault/${VERSION}/${FILENAME}"
 
 # Baixa o arquivo
-curl -LO $DOWNLOAD_URL || error_exit "Falha ao baixar o Vault"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILENAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o Vault"
 
 # Extrai o arquivo
 echo "Extraindo o arquivo ZIP..."
@@ -25,4 +22,4 @@ install -o root -g root -m 0755 vault /usr/local/bin || error_exit "Falha ao ins
 
 # Limpa os arquivos temporários
 rm -f "${FILENAME}" vault LICENSE.txt || error_exit "Falha ao remover arquivos temporários."
-echo "Vault ${latest_version} instalado com sucesso."
+echo "Vault ${VERSION} instalado com sucesso."

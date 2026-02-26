@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
@@ -9,7 +10,7 @@ MC_PATH="/usr/local/bin/mc"
 
 # Baixa o binário do MinIO Client
 echo "Baixando MinIO Client (mc)..."
-curl -sLO "$MC_URL" || error_exit "Falha ao baixar o MinIO Client"
+curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o mc "$MC_URL" || error_exit "Falha ao baixar o MinIO Client"
 
 # Verifica se o arquivo foi baixado corretamente
 if [ ! -f "mc" ]; then

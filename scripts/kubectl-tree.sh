@@ -4,17 +4,18 @@ set -euo pipefail
 source /usr/local/bin/utils.sh
 
 REPO="ahmetb/kubectl-tree"
-API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+KUBECTL_TREE_VERSION="${KUBECTL_TREE_VERSION:-v0.4.6}"
+API_URL="https://api.github.com/repos/${REPO}/releases/tags/${KUBECTL_TREE_VERSION}"
 DEST_PRIMARY="/usr/local/bin/kubectl-tree"
 DEST_FALLBACK="${HOME:-/tmp}/.local/bin/kubectl-tree"
 DEST="$DEST_PRIMARY"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-echo "Obtendo última versão do kubectl-tree..."
+echo "Obtendo release ${KUBECTL_TREE_VERSION} do kubectl-tree..."
 release_json=$(curl -fsSL "$API_URL") || error_exit "Não foi possível consultar a API do GitHub."
 latest_tag=$(echo "$release_json" | grep -oP '"tag_name":\s*"\K[^"]+')
-[ -n "$latest_tag" ] || error_exit "Não foi possível determinar a versão mais recente."
+[ -n "$latest_tag" ] || error_exit "Não foi possível determinar a versão alvo."
 
 if command -v kubectl-tree >/dev/null 2>&1; then
     current=$(kubectl-tree version 2>/dev/null || true)
