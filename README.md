@@ -114,6 +114,42 @@ A partir do Host:
 
 Vai gerar um backup com data e hora da execução, permitindo assim salvar seus dados e configurações gerados a partir do container.
 
+#### Serviço web de backup (executar e baixar no navegador)
+
+Você pode subir um endpoint HTTP dentro do container para criar e baixar backups:
+
+```bash
+# Sobe o serviço em http://localhost:30000
+./run.sh backup-web
+```
+
+Com token (recomendado):
+
+```bash
+BACKUP_WEB_TOKEN='troque-este-token' ./run.sh backup-web
+```
+
+Auto-start ao entrar no container:
+- Por padrão, ao abrir shell interativo (`./run.sh` sem comando), o `backup-web` sobe em background automaticamente.
+- Para desativar: `BACKUP_WEB_AUTOSTART=0 ./run.sh`
+- Log padrão: `/var/log/backup-web.log` (configurável em `BACKUP_WEB_LOG`). Se não houver permissão, usa fallback em `/tools/.backup-web.log`
+
+Endpoints principais:
+- `GET /` interface web simples
+- `POST /api/backup` executa backup
+- `GET /api/backups` lista backups
+- `GET /api/backups/<arquivo>` faz download
+- `GET /api/backups/<arquivo>/contents` lista o conteúdo do arquivo tar
+- `DELETE /api/backups/<arquivo>` exclui backup
+
+Variáveis úteis:
+- `BACKUP_WEB_HOST` (padrão: `0.0.0.0`)
+- `BACKUP_WEB_PORT` (padrão: `30000`)
+- `BACKUP_WEB_TOKEN` (se definido, exige token em `X-Backup-Token` ou `Authorization: Bearer ...`)
+- `BACKUP_DIR` (padrão: `/backup`)
+- `BACKUP_ARCHIVE_LIST_MAX_LINES` (padrão: `5000`, limite de linhas ao listar conteúdo)
+- `BACKUP_ARCHIVE_LIST_TIMEOUT` (padrão: `20` segundos para leitura de conteúdo)
+
 ### Gerenciador de pacotes interno (`pkg_add`)
 
 - Listar catálogo: `pkg_add list`

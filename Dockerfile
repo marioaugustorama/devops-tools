@@ -130,10 +130,12 @@ RUN /usr/local/bin/run_all.sh
 COPY entrypoint.sh /tmp/entrypoint.sh
 
 COPY src/backup.py /tmp/backup.py
+COPY src/backup_service.py /tmp/backup_service.py
 
 RUN chmod +x /tmp/entrypoint.sh && \
     mv /tmp/entrypoint.sh /entrypoint.sh && \
     install -o root -g root -m 0755 /tmp/backup.py /usr/local/bin/backup && \
+    install -o root -g root -m 0755 /tmp/backup_service.py /usr/local/bin/backup-web && \
     rm -rf backup 
 
 # Mapeia o diretório de trabalho localmente
