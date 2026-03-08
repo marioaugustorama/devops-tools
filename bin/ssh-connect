@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SYSTEM_ROOT="/usr/local/lib/devops-tools/ssh_connect"
+
+if [ -f "$REPO_ROOT/ssh_connect/ssh-connect.py" ]; then
+  export PYTHONPATH="$REPO_ROOT/ssh_connect:${PYTHONPATH:-}"
+  exec python3 "$REPO_ROOT/ssh_connect/ssh-connect.py" "$@"
+fi
+
+if [ -f "$SYSTEM_ROOT/ssh-connect.py" ]; then
+  export PYTHONPATH="$SYSTEM_ROOT:${PYTHONPATH:-}"
+  exec python3 "$SYSTEM_ROOT/ssh-connect.py" "$@"
+fi
+
+echo "Erro: ssh_connect não encontrado em $REPO_ROOT/ssh_connect nem em $SYSTEM_ROOT" >&2
+exit 1

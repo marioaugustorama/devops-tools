@@ -309,6 +309,21 @@ pip3 install textual
 bin/devops-tui
 ```
 
+### SSH Connect (`ssh-connect`)
+
+- Comando: `ssh-connect`
+- Interface padrão: `textual`
+- Fallback/alternativa: `curses` (`ssh-connect --ui curses`)
+- Origem dos hosts: `~/.ssh/config`
+
+Execução dentro do container:
+
+```bash
+ssh-connect
+ssh-connect --ui curses
+ssh-connect -f ~/.ssh/config -k ~/.ssh
+```
+
 #### Cache local de artefatos (modo offline/4G)
 - Instaladores de binários (ex.: `helm`, `kubectl`, `terraform`, `opentofu`, `mongodb`) agora usam cache local persistente.
 - Diretório padrão do cache: `/var/lib/devops-pkg/cache` (no host: `./pkg_state/cache` via volume do `run.sh`).

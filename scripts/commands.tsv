@@ -17,6 +17,7 @@ az	azure-tools	Azure CLI
 azcopy	azure-tools	Ferramenta de cópia para Azure Storage
 mc	mc	MinIO Client compatível com S3
 rclone	rclone	Sincronização de arquivos multi-cloud
+ssh-connect	ssh-connect	Launcher SSH com interface textual/curses
 bw	bitwarden	Bitwarden CLI para gestão de segredos
 mongosh	mongodb	MongoDB Shell
 mongodump	mongodb	MongoDB dump tool

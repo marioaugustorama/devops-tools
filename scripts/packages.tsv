@@ -20,6 +20,7 @@ mongodb	MongoDB tools: mongosh, mongodump, mongorestore (alias mongobackup).	dat
 openvpn	Cliente OpenVPN para conexões VPN via arquivo .ovpn/.conf.	network	0
 opentofu	CLI OpenTofu (fork open source do Terraform).	iac	0
 rclone	Sincronização/transferência de arquivos para múltiplos backends.	storage	0
+ssh-connect	Launcher SSH com TUI textual/curses baseado em ~/.ssh/config.	network	1
 terraform	CLI Terraform para IaC.	iac	0
 vault	Cofre de segredos HashiCorp Vault CLI.	security	0
 wireguard-tools	Cliente WireGuard (wg/wg-quick) para VPNs.	network	0
