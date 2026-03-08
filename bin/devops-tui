@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SYSTEM_PY_ROOT="/usr/local/lib/devops-tools"
+
+if [ -f "$REPO_ROOT/src/tui/app.py" ]; then
+  export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
+  exec python3 -m src.tui.app "$@"
+fi
+
+if [ -f "$SYSTEM_PY_ROOT/src/tui/app.py" ]; then
+  export PYTHONPATH="$SYSTEM_PY_ROOT:${PYTHONPATH:-}"
+  exec python3 -m src.tui.app "$@"
+fi
+
+echo "Erro: TUI não encontrada em $REPO_ROOT/src/tui nem em $SYSTEM_PY_ROOT/src/tui" >&2
+exit 1
