@@ -1,0 +1,3 @@
+[submodule "ssh_connect"]
+	path = ssh_connect
+	url = https://github.com/marioaugustorama/ssh_connect
