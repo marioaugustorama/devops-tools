@@ -1,0 +1,26 @@
+name: Security Scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image for scan
+        run: docker build . --file Dockerfile --tag marioaugustorama/devops-tools:ci-scan
+
+      - name: Trivy vulnerability scan (gate)
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: marioaugustorama/devops-tools:ci-scan
+          format: table
+          vuln-type: os,library
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: 1

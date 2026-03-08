@@ -14,22 +14,30 @@ STRICT_CHECKSUM ?= 1
 
 # Docker build options
 BUILD_OPTS ?= --network=host
+TRIVY_SEVERITY ?= HIGH,CRITICAL
+TRIVY_OPTS ?= --ignore-unfixed
 
 # Export variables to recipes
 export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
 
-.PHONY: help build push tag-latest run bump-patch bump-minor bump-major version
+.PHONY: help build security-scan security-gate push tag-latest run compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
 
 help:
 	@echo "Targets:"
 	@echo "  build          Build image $(IMAGE):$(TAG) (host network by default)"
+	@echo "  security-scan  Run Trivy scan (HIGH/CRITICAL by default)"
+	@echo "  security-gate  Run Trivy scan and fail on findings"
 	@echo "  push           Push image $(IMAGE):$(TAG)"
 	@echo "  tag-latest     Tag $(IMAGE):$(TAG) as latest and push"
 	@echo "  run            Run using run.sh with IMAGE/TAG"
+	@echo "  compose-up     Start conventional daemon mode via docker compose"
+	@echo "  compose-up-vpn Start daemon mode with VPN capabilities (NET_ADMIN + /dev/net/tun)"
+	@echo "  compose-shell  Open shell in compose daemon container"
+	@echo "  compose-down   Stop/remove compose daemon container"
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
-	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS"
+	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, TRIVY_SEVERITY, TRIVY_OPTS"
 	@echo "Examples:"
 	@echo "  make build TAG=v1.17.0"
 	@echo "  make build TAG=v1.17.0 APT_MIRROR=http://br.archive.ubuntu.com/ubuntu"
@@ -43,6 +51,12 @@ build:
 	  --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
 	  -t $(IMAGE):$(TAG) .
 
+security-scan:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.61.1 image --scanners vuln --severity $(TRIVY_SEVERITY) $(TRIVY_OPTS) $(IMAGE):$(TAG)
+
+security-gate:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.61.1 image --scanners vuln --severity $(TRIVY_SEVERITY) $(TRIVY_OPTS) --exit-code 1 $(IMAGE):$(TAG)
+
 push:
 	docker push $(IMAGE):$(TAG)
 
@@ -52,6 +66,18 @@ tag-latest:
 
 run:
 	DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) ./run.sh
+
+compose-up:
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d
+
+compose-up-vpn:
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d
+
+compose-shell:
+	docker compose exec devops-tools bash
+
+compose-down:
+	docker compose down
 
 # Convenience target for Brazil mirror
 .PHONY: build-br

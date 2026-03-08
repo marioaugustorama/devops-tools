@@ -11,10 +11,13 @@ from urllib.parse import unquote, urlparse
 
 
 BACKUP_DIR = os.environ.get("BACKUP_DIR", "/backup")
-BACKUP_TOKEN = os.environ.get("BACKUP_WEB_TOKEN", "").strip()
-HOST = os.environ.get("BACKUP_WEB_HOST", "0.0.0.0")
-PORT = int(os.environ.get("BACKUP_WEB_PORT", "30000"))
+BACKUP_TOKEN = os.environ.get("TOOLS_WEB_TOKEN", os.environ.get("BACKUP_WEB_TOKEN", "")).strip()
+HOST = os.environ.get("TOOLS_WEB_HOST", os.environ.get("BACKUP_WEB_HOST", "0.0.0.0"))
+PORT = int(os.environ.get("TOOLS_WEB_PORT", os.environ.get("BACKUP_WEB_PORT", "30000")))
 BACKUP_CMD = os.environ.get("BACKUP_CMD", "/usr/local/bin/backup")
+SCRIPTS_DIR = os.environ.get("SCRIPTS_DIR", "/usr/local/scripts")
+PKG_INDEX = os.environ.get("PKG_INDEX", f"{SCRIPTS_DIR}/packages.tsv")
+STATE_FILE = os.environ.get("STATE_FILE", "/var/lib/devops-pkg/installed.list")
 RUN_LOCK = threading.Lock()
 ARCHIVE_LIST_MAX_LINES = int(os.environ.get("BACKUP_ARCHIVE_LIST_MAX_LINES", "5000"))
 ARCHIVE_LIST_TIMEOUT = int(os.environ.get("BACKUP_ARCHIVE_LIST_TIMEOUT", "20"))
@@ -114,11 +117,73 @@ def _list_archive_preview(archive_path, max_lines, timeout_seconds):
     }
 
 
+def _normalize_bool(value):
+    raw = str(value or "").strip().lower()
+    return raw in {"1", "true", "yes", "y", "on", "sim"}
+
+
+def _read_installed_set():
+    installed = set()
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                item = line.strip()
+                if not item or item.startswith("#"):
+                    continue
+                installed.add(item)
+    except FileNotFoundError:
+        return installed
+    except OSError:
+        return installed
+    return installed
+
+
+def _list_packages():
+    installed = _read_installed_set()
+    items = []
+    try:
+        with open(PKG_INDEX, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.rstrip("\n")
+                if not line or line.startswith("#"):
+                    continue
+                cols = line.split("\t")
+                name = (cols[0] if len(cols) >= 1 else "").strip()
+                if not name:
+                    continue
+                desc = (cols[1] if len(cols) >= 2 else name).strip()
+                group = (cols[2] if len(cols) >= 3 else "general").strip() or "general"
+                default_install = _normalize_bool(cols[3] if len(cols) >= 4 else "1")
+                script_path = os.path.join(SCRIPTS_DIR, f"{name}.sh")
+                items.append(
+                    {
+                        "name": name,
+                        "description": desc,
+                        "group": group,
+                        "default_install": default_install,
+                        "installed": name in installed,
+                        "script_exists": os.path.isfile(script_path),
+                    }
+                )
+    except FileNotFoundError:
+        return {"items": [], "index": PKG_INDEX, "state_file": STATE_FILE, "error": "pkg_index_not_found"}
+    except OSError as exc:
+        return {
+            "items": [],
+            "index": PKG_INDEX,
+            "state_file": STATE_FILE,
+            "error": f"pkg_index_read_failed: {exc}",
+        }
+
+    items.sort(key=lambda x: (x["group"], x["name"]))
+    return {"items": items, "index": PKG_INDEX, "state_file": STATE_FILE}
+
+
 class BackupHandler(BaseHTTPRequestHandler):
-    server_version = "backup-web/1.0"
+    server_version = "tools-web/1.0"
 
     def log_message(self, fmt, *args):
-        print(f"[backup-web] {self.client_address[0]} - {fmt % args}")
+        print(f"[tools-web] {self.client_address[0]} - {fmt % args}")
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -139,6 +204,8 @@ class BackupHandler(BaseHTTPRequestHandler):
                 HTTPStatus.OK,
                 {"backup_dir": BACKUP_DIR, "items": _list_backups()},
             )
+        if path == "/api/packages":
+            return _json(self, HTTPStatus.OK, _list_packages())
 
         if path.startswith("/api/backups/") and path.endswith("/contents"):
             return self._handle_contents(path)
@@ -178,7 +245,7 @@ class BackupHandler(BaseHTTPRequestHandler):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Backup Service</title>
+  <title>DevOps Tools Service</title>
   <style>
     body { font-family: sans-serif; margin: 24px; max-width: 900px; }
     button { padding: 8px 14px; margin-right: 8px; }
@@ -189,7 +256,7 @@ class BackupHandler(BaseHTTPRequestHandler):
   </style>
 </head>
 <body>
-  <h1>Backup Service</h1>
+  <h1>DevOps Tools Service</h1>
   <p>Diretório de backup: <code>/backup</code></p>
   <p>
     <input id="token" placeholder="Token (se habilitado)">
@@ -203,6 +270,15 @@ class BackupHandler(BaseHTTPRequestHandler):
   </table>
   <h2>Conteúdo do backup</h2>
   <pre id="contents" style="max-height: 320px; overflow: auto; background:#fafafa; border:1px solid #ddd; padding:10px;"></pre>
+  <h2>Pacotes disponíveis</h2>
+  <p>
+    <button onclick="loadPackages()">Atualizar pacotes</button>
+    <small id="pkgMeta"></small>
+  </p>
+  <table>
+    <thead><tr><th>Pacote</th><th>Grupo</th><th>Default</th><th>Status</th><th>Descrição</th><th>Comando</th></tr></thead>
+    <tbody id="pkgRows"></tbody>
+  </table>
   <script>
     function headers() {
       const t = document.getElementById("token").value.trim();
@@ -288,7 +364,53 @@ class BackupHandler(BaseHTTPRequestHandler):
       out.textContent = "# " + j.name + meta + "\\n\\n" + j.entries.join("\\n");
     }
 
+    async function loadPackages() {
+      const r = await fetch("/api/packages", { headers: headers() });
+      const rows = document.getElementById("pkgRows");
+      const meta = document.getElementById("pkgMeta");
+      rows.innerHTML = "";
+      if (!r.ok) {
+        const j = await r.json();
+        document.getElementById("status").textContent = "Erro ao listar pacotes: " + (j.error || r.status);
+        return;
+      }
+      const j = await r.json();
+      if (j.error) {
+        document.getElementById("status").textContent = "Aviso pacotes: " + j.error;
+      }
+      meta.textContent = "Manifesto: " + (j.index || "-");
+      for (const item of j.items || []) {
+        const tr = document.createElement("tr");
+        const status = item.installed ? "instalado" : "pendente";
+        const cmd = "pkg_add install " + item.name;
+
+        const tdName = document.createElement("td");
+        tdName.textContent = item.name;
+        const tdGroup = document.createElement("td");
+        tdGroup.textContent = item.group || "general";
+        const tdDefault = document.createElement("td");
+        tdDefault.textContent = item.default_install ? "sim" : "não";
+        const tdStatus = document.createElement("td");
+        tdStatus.textContent = status;
+        const tdDesc = document.createElement("td");
+        tdDesc.textContent = item.description || "";
+        const tdCmd = document.createElement("td");
+        const code = document.createElement("code");
+        code.textContent = cmd;
+        tdCmd.appendChild(code);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdGroup);
+        tr.appendChild(tdDefault);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdDesc);
+        tr.appendChild(tdCmd);
+        rows.appendChild(tr);
+      }
+    }
+
     loadBackups();
+    loadPackages();
   </script>
 </body>
 </html>"""
@@ -434,11 +556,11 @@ class BackupHandler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), BackupHandler)
-    print(f"[backup-web] listening on http://{HOST}:{PORT}")
+    print(f"[tools-web] listening on http://{HOST}:{PORT}")
     if BACKUP_TOKEN:
-        print("[backup-web] token auth enabled via BACKUP_WEB_TOKEN")
+        print("[tools-web] token auth enabled via TOOLS_WEB_TOKEN/BACKUP_WEB_TOKEN")
     else:
-        print("[backup-web] token auth disabled")
+        print("[tools-web] token auth disabled")
     server.serve_forever()
 
 
