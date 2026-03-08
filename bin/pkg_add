@@ -3,12 +3,27 @@ set -euo pipefail
 shopt -s nullglob
 
 # Diretório onde estão localizados os scripts
-SCRIPTS_DIR="${SCRIPTS_DIR:-/usr/local/scripts}"
+if [ -n "${SCRIPTS_DIR:-}" ]; then
+  SCRIPTS_DIR="$SCRIPTS_DIR"
+elif [ -d "/usr/local/scripts" ]; then
+  SCRIPTS_DIR="/usr/local/scripts"
+else
+  SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" && pwd)"
+fi
 PKG_INDEX="${PKG_INDEX:-$SCRIPTS_DIR/packages.tsv}"
+COMMANDS_INDEX="${COMMANDS_INDEX:-$SCRIPTS_DIR/commands.tsv}"
 STATE_FILE_DEFAULT="/var/lib/devops-pkg/installed.list"
 STATE_FILE="${STATE_FILE:-$STATE_FILE_DEFAULT}"
 PKG_REMOTE_INDEX="${PKG_REMOTE_INDEX:-}"
 PKG_REMOTE_SCRIPTS_DIR="${PKG_REMOTE_SCRIPTS_DIR:-}"
+
+if [ -f /usr/local/bin/utils.sh ]; then
+  # shellcheck disable=SC1091
+  source /usr/local/bin/utils.sh
+elif [ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils.sh" ]; then
+  # shellcheck disable=SC1091
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils.sh"
+fi
 
 AVAILABLE=()
 declare -A PKG_DESC
@@ -24,7 +39,10 @@ Comandos:
                        Lista pacotes disponíveis (ou só os instalados)
   groups               Lista grupos disponíveis no manifesto
   status               Lista pacotes e se já foram instalados via pkg_add
+  version              Mostra versão da imagem/ambiente
   info <pacote>        Mostra detalhes de um pacote
+  suggest [--raw|--tsv] <comando>
+                       Sugere pacote para um comando não encontrado
   install [--all] [--group <grupo>] [--force] <pacote> [pacote...]
                        Instala pacotes específicos, todos (--all) ou por grupo
   disable <pacote>...  Marca pacotes como desabilitados (remove da lista instalada)
@@ -33,6 +51,7 @@ Comandos:
 Variáveis úteis:
   SCRIPTS_DIR (padrão: /usr/local/scripts)
   PKG_INDEX   (padrão: \$SCRIPTS_DIR/packages.tsv)
+  COMMANDS_INDEX (padrão: \$SCRIPTS_DIR/commands.tsv)
   STATE_FILE  (padrão: /var/lib/devops-pkg/installed.list)
   PKG_REMOTE_INDEX        URL opcional do manifest (packages.tsv) remoto
   PKG_REMOTE_SCRIPTS_DIR  URL base opcional para baixar scripts (*.sh)
@@ -394,6 +413,73 @@ disable_packages() {
   fi
 }
 
+print_version() {
+  local version_value=""
+
+  if [ -n "${APP_VERSION:-}" ] && [ "${APP_VERSION}" != "unknown" ]; then
+    version_value="${APP_VERSION}"
+  elif [ -f /etc/version ]; then
+    version_value="$(cat /etc/version 2>/dev/null || true)"
+  fi
+
+  if [ -z "$version_value" ] && [ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/version" ]; then
+    version_value="$(cat "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/version" 2>/dev/null || true)"
+  fi
+
+  [ -n "$version_value" ] || version_value="unknown"
+  echo "$version_value"
+}
+
+suggest_package_command() {
+  local output_mode="human"
+  local cmd=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --raw) output_mode="raw" ;;
+      --tsv) output_mode="tsv" ;;
+      --help|-h)
+        echo "Uso: $0 suggest [--raw|--tsv] <comando>" >&2
+        return 2
+        ;;
+      *)
+        if [ -z "$cmd" ]; then
+          cmd="$1"
+        else
+          echo "Uso: $0 suggest [--raw|--tsv] <comando>" >&2
+          return 2
+        fi
+        ;;
+    esac
+    shift
+  done
+
+  if [ -z "$cmd" ]; then
+    echo "Uso: $0 suggest [--raw|--tsv] <comando>" >&2
+    return 2
+  fi
+
+  if ! command -v suggest_package_for_command >/dev/null 2>&1; then
+    [ "$output_mode" = "human" ] && echo "Sugestão indisponível: função suggest_package_for_command não carregada." >&2
+    return 1
+  fi
+
+  if [ ! -f "$COMMANDS_INDEX" ]; then
+    if [ "$output_mode" = "human" ]; then
+      echo "Sugestão indisponível: índice de comandos não encontrado em '$COMMANDS_INDEX'." >&2
+      echo "Rebuild da imagem necessário para incluir scripts/commands.tsv." >&2
+    fi
+    return 1
+  fi
+
+  if suggest_package_for_command "$cmd" "$output_mode"; then
+    return 0
+  fi
+
+  [ "$output_mode" = "human" ] && echo "Nenhuma sugestão encontrada para '$cmd'." >&2
+  return 1
+}
+
 if [ $# -lt 1 ]; then
   usage; exit 1
 fi
@@ -410,8 +496,14 @@ case "$COMMAND" in
   status)
     print_status
     ;;
+  version)
+    print_version
+    ;;
   info)
     print_info "$@"
+    ;;
+  suggest)
+    suggest_package_command "$@"
     ;;
   install)
     install_packages "$@"
