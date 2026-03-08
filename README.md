@@ -9,6 +9,10 @@ Alvos principais:
 - `make push [TAG=...]` publica a imagem atual.
 - `make tag-latest` marca a imagem atual como `latest` e envia.
 - `make run [TAG=...]` sobe o container via `run.sh` com `IMAGE/TAG` definidos.
+- `make compose-up [TAG=...]` sobe o modo daemon com `docker compose up -d`.
+- `make compose-up-vpn [TAG=...]` sobe o daemon com capacidade de VPN (`NET_ADMIN` + `/dev/net/tun`).
+- `make compose-shell` abre shell no container daemon.
+- `make compose-down` para/remove o container daemon.
 - Bumps de versão: `make bump-patch|bump-minor|bump-major` (atualizam `version` via `scripts/version.sh`).
 - Auxiliares: `make build-br` (espelho BR), `make build-insecure` (sem checksum estrito), `make version` (mostra versão), `make clean` (limpa cache Docker).
 
@@ -23,6 +27,11 @@ make push TAG=v1.18.5
 make tag-latest TAG=v1.18.5
 # Rodar localmente a imagem recém-buildada
 make run TAG=v1.18.5
+# Rodar em modo daemon (compose)
+make compose-up TAG=v1.18.5
+# Rodar em modo daemon com VPN no container
+make compose-up-vpn TAG=v1.18.5
+make compose-shell
 ```
 
 
@@ -53,6 +62,7 @@ make run TAG=v1.18.5
    - [Azure](https://learn.microsoft.com/pt-br/cli/azure/install-azure-cli): Ferramenta para acesso aos serviços da Microsoft Azure!
 
 6. **Utilitários**
+   - [Bitwarden CLI](https://bitwarden.com/help/cli/): Gestão de segredos via terminal (`bw`).
    - [Rclone](https://rclone.org/): Uma ferramenta para sincronização de arquivos.
    - [Minio](https://min.io/): Um servidor de armazenamento de objetos de código aberto compatível com a API S3 da Amazon.
    - [AzCopy](https://learn.microsoft.com/pt-br/azure/storage/common/storage-use-azcopy-v10): Ferramenta para cópiar facilmente de/para blobs e conta de armazenamento na Azure
@@ -80,7 +90,7 @@ make run TAG=v1.18.5
    - mysql-client
    - postgresql-client
 
-## [Inicio Rápido](#quick-start)
+## Início Rápido
 
 Para a rápida execução basta que seja executado o seguinte comando.
 
@@ -95,6 +105,94 @@ Será feito o download e dado permissão de execução ao script.
 Será criado um diretório nomeado como **home**, onde todo seu histórico do shell, tal como arquivos de configuração criados pelos programas serão armazenados.
 
 Portanto o máximo de cuidado com esse diretório, recomendo até que seja um volume criptografado com o Luks, nas futuras versão já virá com o software que prepara esse ambiente automaticamente.
+
+### Modos de inicialização
+
+Use o modo conforme o seu cenário:
+
+- `run.sh` (interativo/efêmero): ideal para abrir uma sessão rápida e descartar o container ao sair.
+- `docker compose up -d` (daemon/persistente): ideal para manter o ambiente ativo e conectar por múltiplos terminais com `docker compose exec`.
+- `docker compose -f compose.yaml -f compose.vpn.yaml up -d`: mesmo daemon, porém com suporte a VPN dentro do container.
+
+#### 1) Daemon com Docker Compose (`up -d`)
+
+Suba o container em background:
+
+```bash
+export LOCAL_USER_ID="$(id -u)"
+export LOCAL_GROUP_ID="$(id -g)"
+export DOCKER_GID="$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)"
+export DEVOPS_TAG="$(cat version 2>/dev/null || echo latest)"
+docker compose up -d
+```
+
+Acessar shell no container já iniciado:
+
+```bash
+docker compose exec devops-tools bash
+```
+
+Executar comando sem abrir shell:
+
+```bash
+docker compose exec devops-tools kubectl version --client
+```
+
+Executar em outros terminais (sessões paralelas):
+
+```bash
+docker compose exec devops-tools bash
+docker compose exec devops-tools k9s
+docker compose exec devops-tools tmux new -A -s ops
+```
+
+Observação sobre o modo daemon:
+- O container sobe com `sleep infinity` para ficar estável.
+- O banner (MOTD) mostra a URL local padrão do `tools-web` (`http://localhost:30000`).
+- Para iniciar o serviço web manualmente: `docker compose exec -d devops-tools tools-web`
+- Para habilitar VPN dentro do container no modo daemon, use `make compose-up-vpn` (ou `docker compose -f compose.yaml -f compose.vpn.yaml up -d`).
+
+Usar com `docker context` (host remoto):
+
+```bash
+docker context use meu-contexto
+docker compose up -d
+docker compose exec devops-tools bash
+```
+
+Ou sem trocar o contexto global:
+
+```bash
+DOCKER_CONTEXT=meu-contexto docker compose up -d
+DOCKER_CONTEXT=meu-contexto docker compose exec devops-tools bash
+```
+
+Trocar contexto Kubernetes dentro do container:
+
+```bash
+kubectl config get-contexts
+kubectl config use-context <contexto>
+```
+
+Parar/remover o modo daemon:
+
+```bash
+docker compose down
+```
+
+#### 2) Interativo com `run.sh`
+
+Mantém o fluxo existente:
+
+```bash
+./run.sh
+```
+
+Ou com comando direto:
+
+```bash
+./run.sh backup
+```
 
 ### [Scripts](#helpers)
 
@@ -114,38 +212,40 @@ A partir do Host:
 
 Vai gerar um backup com data e hora da execução, permitindo assim salvar seus dados e configurações gerados a partir do container.
 
-#### Serviço web de backup (executar e baixar no navegador)
+#### Serviço web de utilidades (backup + pacotes)
 
 Você pode subir um endpoint HTTP dentro do container para criar e baixar backups:
 
 ```bash
 # Sobe o serviço em http://localhost:30000
-./run.sh backup-web
+./run.sh tools-web
 ```
 
 Com token (recomendado):
 
 ```bash
-BACKUP_WEB_TOKEN='troque-este-token' ./run.sh backup-web
+TOOLS_WEB_TOKEN='troque-este-token' ./run.sh tools-web
 ```
 
 Auto-start ao entrar no container:
-- Por padrão, ao abrir shell interativo (`./run.sh` sem comando), o `backup-web` sobe em background automaticamente.
-- Para desativar: `BACKUP_WEB_AUTOSTART=0 ./run.sh`
-- Log padrão: `/var/log/backup-web.log` (configurável em `BACKUP_WEB_LOG`). Se não houver permissão, usa fallback em `/tools/.backup-web.log`
+- Por padrão, ao abrir shell interativo (`./run.sh` sem comando), o `tools-web` sobe em background automaticamente.
+- Para desativar: `TOOLS_WEB_AUTOSTART=0 ./run.sh`
+- Log padrão: `/var/log/tools-web.log` (configurável em `TOOLS_WEB_LOG`). Se não houver permissão, usa fallback em `/tools/.tools-web.log`
+- Compatibilidade: `backup-web` e variáveis `BACKUP_WEB_*` continuam aceitas.
 
 Endpoints principais:
 - `GET /` interface web simples
 - `POST /api/backup` executa backup
 - `GET /api/backups` lista backups
+- `GET /api/packages` lista pacotes disponíveis do `pkg_add` (grupo/default/status)
 - `GET /api/backups/<arquivo>` faz download
 - `GET /api/backups/<arquivo>/contents` lista o conteúdo do arquivo tar
 - `DELETE /api/backups/<arquivo>` exclui backup
 
 Variáveis úteis:
-- `BACKUP_WEB_HOST` (padrão: `0.0.0.0`)
-- `BACKUP_WEB_PORT` (padrão: `30000`)
-- `BACKUP_WEB_TOKEN` (se definido, exige token em `X-Backup-Token` ou `Authorization: Bearer ...`)
+- `TOOLS_WEB_HOST` (ou `BACKUP_WEB_HOST`) padrão: `0.0.0.0`
+- `TOOLS_WEB_PORT` (ou `BACKUP_WEB_PORT`) padrão: `30000`
+- `TOOLS_WEB_TOKEN` (ou `BACKUP_WEB_TOKEN`) exige token em `X-Backup-Token` ou `Authorization: Bearer ...`
 - `BACKUP_DIR` (padrão: `/backup`)
 - `BACKUP_ARCHIVE_LIST_MAX_LINES` (padrão: `5000`, limite de linhas ao listar conteúdo)
 - `BACKUP_ARCHIVE_LIST_TIMEOUT` (padrão: `20` segundos para leitura de conteúdo)
@@ -154,13 +254,49 @@ Variáveis úteis:
 
 - Listar catálogo: `pkg_add list`
 - Listar apenas instalados (persistidos): `pkg_add list --installed`
+- Listar por grupo: `pkg_add list --group k8s`
+- Listar grupos: `pkg_add groups`
+- Grupo recomendado de base: `pkg_add install --group core`
 - Ver status (instalado/pendente): `pkg_add status`
 - Detalhar um pacote: `pkg_add info <nome>`
 - Instalar tudo: `pkg_add install --all`
+- Instalar por grupo: `pkg_add install --group iac` (aceita múltiplos: `--group cloud,k8s`)
 - Instalar pacotes específicos: `pkg_add install kubectl helm doctl` (use `--force` para reinstalar)
 - Desabilitar marcação de instalado (não desinstala): `pkg_add disable eksctl`
 
-Os pacotes são definidos em `scripts/packages.tsv` (nome + descrição) e cada instalador mora em `scripts/<nome>.sh`.
+Os pacotes são definidos em `scripts/packages.tsv` com 4 colunas:
+- `name`, `description`, `group`, `default_install (0|1)`.
+- O build padrão (`run_all.sh`) instala só os pacotes com `default_install=1`; os demais ficam sob demanda via `pkg_add`.
+- Também é possível filtrar build por grupo com `RUN_ALL_GROUPS=...` e forçar tudo com `RUN_ALL_MODE=all`.
+- O grupo `core` concentra ferramentas de uso diário (ex.: `docker`, `ipcalc`, `less`, `updatedb`).
+
+#### Cache local de artefatos (modo offline/4G)
+- Instaladores de binários (ex.: `helm`, `kubectl`, `terraform`, `opentofu`, `mongodb`) agora usam cache local persistente.
+- Diretório padrão do cache: `/var/lib/devops-pkg/cache` (no host: `./pkg_state/cache` via volume do `run.sh`).
+- Primeira instalação baixa e salva no cache; instalações seguintes reutilizam o artefato local.
+- Variáveis:
+  - `PKG_CACHE_DIR`: altera diretório do cache.
+  - `PKG_CACHE_ENABLED=0`: desabilita cache e força download.
+
+### Gestão de segredos com Bitwarden (`bw`)
+
+Instalação (se não estiver presente):
+```bash
+pkg_add install bitwarden
+```
+
+Fluxo básico:
+```bash
+bw config server https://vault.bitwarden.com
+bw login --apikey
+bw unlock --raw
+export BW_SESSION="<token-retornado>"
+```
+
+Helper para executar comando com segredo em variável sem salvar em arquivo:
+```bash
+secret-run DB_PASSWORD get password "meu-item" -- ./meu-script.sh
+```
 
 #### Auto-instalação na subida do container
 - Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/auto-install.list` (pkg_add) e `pkg_state/apt-packages.list` (apt). Linhas em branco ou começando com `#` são ignoradas.
@@ -172,9 +308,9 @@ Os pacotes são definidos em `scripts/packages.tsv` (nome + descrição) e cada 
 ### Como adicionar um novo pacote
 
 1. Criar o instalador em `scripts/<nome>.sh` (bash, `set -euo pipefail`, idempotente).
-2. Adicionar o pacote ao manifesto `scripts/packages.tsv` com uma descrição curta.
+2. Adicionar o pacote ao manifesto `scripts/packages.tsv` com descrição, grupo e flag de default.
 3. Opcional: testar no container com `pkg_add install <nome>` e confirmar que roda repetidamente sem falhar.
-4. Atualizar a imagem ou rodar `run_all.sh` para incluir no build.
+4. Atualizar a imagem ou rodar `run_all.sh` para incluir no build (se `default_install=1` ou usando `RUN_ALL_MODE=all`).
 
 #### Boilerplate para novo instalador (`scripts/exemplo.sh`)
 ```bash
@@ -228,8 +364,42 @@ Os pacotes listados serão reinstalados automaticamente quando o container subir
 - Variáveis úteis: `HOSTS_FILE` para usar outro arquivo (ex.: `HOSTS_FILE=./home/hosts hosts-editor add ...`); use `--no-backup` para pular backup automático.
 - Por padrão cria um `.bak` com timestamp ao lado do arquivo alterado; alterar `/etc/hosts` pede permissão (sudo).
 
-### VPN dentro do container (WireGuard)
-- Pacote: `wireguard-tools` no catálogo (`pkg_add install wireguard-tools` ou `pkg_apt add wireguard-tools`).
-- Configs e chave: monte `./vpn-configs` em `/etc/wireguard` e use `./wireguard-keys` para guardar a chave fornecida pelo servidor (montado em `/etc/wireguard/keys`).
-- Execução: `./run.sh` já adiciona `NET_ADMIN`, `/dev/net/tun` e monta os volumes acima. Se precisar rotear tráfego (NAT/forwarding), suba com `ENABLE_WG_FORWARDING=1 ./run.sh ...` para aplicar os sysctls.
-- Uso dentro do container: `wg-quick up wg0` / `wg-quick down wg0` (conf com `PrivateKey = /etc/wireguard/keys/<arquivo>`).
+### VPN dentro do container (WireGuard + OpenVPN)
+
+Pré-requisitos de runtime:
+- Interativo: `./run.sh` já sobe com `NET_ADMIN` + `/dev/net/tun`.
+- Daemon: use `make compose-up-vpn` (ou `docker compose -f compose.yaml -f compose.vpn.yaml up -d`).
+- Se precisar forwarding/NAT: `ENABLE_WG_FORWARDING=1`.
+
+Instalação dos clientes VPN (dentro do container):
+```bash
+pkg_add install wireguard-tools openvpn
+```
+
+Diretórios padrão:
+- WireGuard: `/etc/wireguard` (host: `./vpn-configs`)
+- OpenVPN: `/etc/openvpn` (coloque seus `.ovpn` ou `.conf`)
+- Chaves WireGuard: `/etc/wireguard/keys` (host: `./wireguard-keys`)
+
+Comando unificado `vpn`:
+```bash
+# perfis disponíveis
+vpn list
+
+# subir WireGuard (ex.: /etc/wireguard/wg0.conf)
+vpn up wg0 --type wireguard
+
+# subir OpenVPN (ex.: /etc/openvpn/client.ovpn)
+vpn up client.ovpn --type openvpn
+
+# status
+vpn status
+
+# derrubar conexão
+vpn down --type wireguard
+vpn down --type openvpn
+```
+
+Observações:
+- `vpn up`/`vpn down` usam `sudo` automaticamente quando necessário.
+- OpenVPN roda em background e grava log em `/var/log/openvpn-client.log`.

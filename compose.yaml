@@ -1,0 +1,41 @@
+services:
+  devops-tools:
+    image: ${DEVOPS_IMAGE:-marioaugustorama/devops-tools}:${DEVOPS_TAG:-latest}
+    container_name: ${DEVOPS_CONTAINER_NAME:-devops-tools-daemon}
+    user: "${LOCAL_USER_ID:-1000}:${LOCAL_GROUP_ID:-1000}"
+    privileged: true
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    group_add:
+      - "${DOCKER_GID:-0}"
+    ports:
+      - "${IP_BIND:-0.0.0.0}:${DEVOPS_PORTS:-30000-30005:30000-30005}"
+    environment:
+      LOCAL_USER_ID: "${LOCAL_USER_ID:-1000}"
+      LOCAL_GROUP_ID: "${LOCAL_GROUP_ID:-1000}"
+      APP_VERSION: "${APP_VERSION:-unknown}"
+      PKG_AUTO_RESTORE: "${PKG_AUTO_RESTORE:-0}"
+      PKG_LAZY_INSTALL: "${PKG_LAZY_INSTALL:-1}"
+      PKG_INDEX: "${PKG_INDEX:-}"
+      PKG_AUTO_LIST: "${PKG_AUTO_LIST:-}"
+      PKG_CACHE_DIR: "${PKG_CACHE_DIR:-}"
+      PKG_CACHE_ENABLED: "${PKG_CACHE_ENABLED:-1}"
+      DEVOPS_DNS: "${DEVOPS_DNS:-}"
+      DEVOPS_DNS_SEARCH: "${DEVOPS_DNS_SEARCH:-}"
+      DEVOPS_DNS_AUTO: "${DEVOPS_DNS_AUTO:-1}"
+      ENABLE_WIREGUARD: "${ENABLE_WIREGUARD:-1}"
+      ENABLE_WG_FORWARDING: "${ENABLE_WG_FORWARDING:-0}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./home:/tools
+      - ${HOME}/.kube:/tools/.kube
+      - ./backup:/backup
+      - ./logs:/var/log
+      - ${PKG_STATE_DIR:-./pkg_state}:/var/lib/devops-pkg
+      - ${VPN_CONFIG_DIR:-./vpn-configs}:/etc/wireguard
+      - ${OVPN_CONFIG_DIR:-./openvpn-configs}:/etc/openvpn
+      - ${WG_KEYS_DIR:-./wireguard-keys}:/etc/wireguard/keys
+      - ./entrypoint.sh:/entrypoint.sh:ro
+      - ./update-motd.sh:/usr/local/bin/update-motd.sh:ro
+    command: ["sleep", "infinity"]

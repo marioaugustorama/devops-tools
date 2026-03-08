@@ -122,7 +122,9 @@ COPY bin/pkg_add /usr/local/bin
 COPY bin/pkg_apt /usr/local/bin
 COPY bin/hosts-editor /usr/local/bin
 COPY bin/enable-docs /usr/local/bin
-RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pkg_add /usr/local/bin/pkg_apt /usr/local/bin/hosts-editor /usr/local/bin/enable-docs
+COPY bin/secret-run /usr/local/bin
+COPY bin/vpn /usr/local/bin
+RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pkg_add /usr/local/bin/pkg_apt /usr/local/bin/hosts-editor /usr/local/bin/enable-docs /usr/local/bin/secret-run /usr/local/bin/vpn
 
 # Executa todos os scripts de instalação
 RUN /usr/local/bin/run_all.sh
@@ -135,7 +137,8 @@ COPY src/backup_service.py /tmp/backup_service.py
 RUN chmod +x /tmp/entrypoint.sh && \
     mv /tmp/entrypoint.sh /entrypoint.sh && \
     install -o root -g root -m 0755 /tmp/backup.py /usr/local/bin/backup && \
-    install -o root -g root -m 0755 /tmp/backup_service.py /usr/local/bin/backup-web && \
+    install -o root -g root -m 0755 /tmp/backup_service.py /usr/local/bin/tools-web && \
+    ln -sf /usr/local/bin/tools-web /usr/local/bin/backup-web && \
     rm -rf backup 
 
 # Mapeia o diretório de trabalho localmente

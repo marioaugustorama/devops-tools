@@ -1,21 +1,25 @@
-# name<TAB>description
-awscli	CLI da AWS para gerenciamento de serviços AWS.
-azure-tools	CLI da Azure e AzCopy para transferências e gestão.
-docker	Instalação do Docker Engine e grupo docker para uso do socket.
-doctl	CLI da DigitalOcean para recursos e Kubernetes.
-eksctl	CLI oficial para criar e gerenciar clusters EKS.
-eks-node-viewer	Visualizador interativo de nós EKS no terminal.
-helm	Gerenciador de pacotes para Kubernetes.
-k9s	Interface TUI para administrar clusters Kubernetes.
-kubebox	Dashboard de terminal para Kubernetes.
-kubectl	CLI padrão do Kubernetes para aplicar e inspecionar recursos.
-kubectl-tree	Plugin kubectl para listar árvore de recursos.
-kubespy	Watcher de eventos de recursos Kubernetes em tempo real.
-kubectx	Switch de contextos do kubectl.
-kubens	Switch de namespaces do kubectl.
-mc	Cliente MinIO compatível com S3 (mc).
-opentofu	CLI OpenTofu (fork open source do Terraform).
-rclone	Sincronização/transferência de arquivos para múltiplos backends.
-terraform	CLI Terraform para IaC.
-vault	Cofre de segredos HashiCorp Vault CLI.
-wireguard-tools	Cliente WireGuard (wg/wg-quick) para VPNs.
+# name<TAB>description<TAB>group<TAB>default_install(0|1)
+awscli	CLI da AWS para gerenciamento de serviços AWS.	cloud	0
+azure-tools	CLI da Azure e AzCopy para transferências e gestão.	cloud	0
+bitwarden	Bitwarden CLI (bw) para gestão segura de segredos.	security	0
+core-utils	Ferramentas core de uso diário (rede, ipcalc, less e updatedb).	core	1
+docker	Instalação do Docker Engine e grupo docker para uso do socket.	core	1
+doctl	CLI da DigitalOcean para recursos e Kubernetes.	cloud	0
+eksctl	CLI oficial para criar e gerenciar clusters EKS.	k8s	0
+eks-node-viewer	Visualizador interativo de nós EKS no terminal.	k8s	0
+helm	Gerenciador de pacotes para Kubernetes.	k8s	1
+k9s	Interface TUI para administrar clusters Kubernetes.	k8s	1
+kubebox	Dashboard de terminal para Kubernetes.	k8s	0
+kubectl	CLI padrão do Kubernetes para aplicar e inspecionar recursos.	k8s	1
+kubectl-tree	Plugin kubectl para listar árvore de recursos.	k8s	1
+kubespy	Watcher de eventos de recursos Kubernetes em tempo real.	k8s	1
+kubectx	Switch de contextos do kubectl.	k8s	1
+kubens	Switch de namespaces do kubectl.	k8s	1
+mc	Cliente MinIO compatível com S3 (mc).	storage	1
+mongodb	MongoDB tools: mongosh, mongodump, mongorestore (alias mongobackup).	database	0
+openvpn	Cliente OpenVPN para conexões VPN via arquivo .ovpn/.conf.	network	0
+opentofu	CLI OpenTofu (fork open source do Terraform).	iac	0
+rclone	Sincronização/transferência de arquivos para múltiplos backends.	storage	0
+terraform	CLI Terraform para IaC.	iac	0
+vault	Cofre de segredos HashiCorp Vault CLI.	security	0
+wireguard-tools	Cliente WireGuard (wg/wg-quick) para VPNs.	network	0

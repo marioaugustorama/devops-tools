@@ -1,0 +1,315 @@
+#!/bin/bash
+set -euo pipefail
+shopt -s nullglob
+
+WG_DIR="${WG_DIR:-/etc/wireguard}"
+OVPN_DIR="${OVPN_DIR:-/etc/openvpn}"
+STATE_DIR="${VPN_STATE_DIR:-/var/lib/devops-pkg/vpn}"
+OPENVPN_PID_FILE="${STATE_DIR}/openvpn.pid"
+OPENVPN_PROFILE_FILE="${STATE_DIR}/openvpn.profile"
+OPENVPN_LOG="${OPENVPN_LOG:-/var/log/openvpn-client.log}"
+
+usage() {
+  cat <<'EOF'
+Uso: vpn <comando> [opções]
+
+Comandos:
+  list
+      Lista perfis disponíveis em /etc/wireguard e /etc/openvpn.
+  up <perfil> [--type auto|wireguard|openvpn]
+      Sobe um perfil VPN.
+  down [perfil] [--type auto|wireguard|openvpn]
+      Derruba VPN ativa. Sem perfil, derruba tudo que estiver ativo.
+  status
+      Mostra status de WireGuard e OpenVPN.
+
+Exemplos:
+  vpn list
+  vpn up wg0 --type wireguard
+  vpn up /etc/openvpn/client/meu.ovpn --type openvpn
+  vpn down wg0 --type wireguard
+  vpn down --type openvpn
+  vpn status
+EOF
+}
+
+run_as_root() {
+  if [ "$EUID" -eq 0 ]; then
+    "$@"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+  echo "Este comando precisa de root/sudo: $*" >&2
+  exit 1
+}
+
+require_cmd() {
+  local cmd="$1"
+  local hint="$2"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Comando '$cmd' não encontrado. $hint" >&2
+    exit 1
+  fi
+}
+
+resolve_wireguard_profile() {
+  local profile="$1"
+  if [ -f "$profile" ]; then
+    echo "$profile"
+    return
+  fi
+  if [ -f "${WG_DIR}/${profile}" ]; then
+    echo "${WG_DIR}/${profile}"
+    return
+  fi
+  if [ -f "${WG_DIR}/${profile}.conf" ]; then
+    echo "${WG_DIR}/${profile}.conf"
+    return
+  fi
+  echo "Perfil WireGuard não encontrado: $profile" >&2
+  exit 1
+}
+
+resolve_openvpn_profile() {
+  local profile="$1"
+  if [ -f "$profile" ]; then
+    echo "$profile"
+    return
+  fi
+  if [ -f "${OVPN_DIR}/${profile}" ]; then
+    echo "${OVPN_DIR}/${profile}"
+    return
+  fi
+  if [ -f "${OVPN_DIR}/${profile}.ovpn" ]; then
+    echo "${OVPN_DIR}/${profile}.ovpn"
+    return
+  fi
+  if [ -f "${OVPN_DIR}/${profile}.conf" ]; then
+    echo "${OVPN_DIR}/${profile}.conf"
+    return
+  fi
+  echo "Perfil OpenVPN não encontrado: $profile" >&2
+  exit 1
+}
+
+list_profiles() {
+  echo "WireGuard profiles (${WG_DIR}):"
+  local found=0
+  for f in "${WG_DIR}"/*.conf; do
+    echo "  - $(basename "${f%.conf}")"
+    found=1
+  done
+  [ "$found" -eq 1 ] || echo "  (nenhum)"
+
+  echo "OpenVPN profiles (${OVPN_DIR}):"
+  found=0
+  for f in "${OVPN_DIR}"/*.ovpn "${OVPN_DIR}"/*.conf; do
+    echo "  - $(basename "$f")"
+    found=1
+  done
+  [ "$found" -eq 1 ] || echo "  (nenhum)"
+}
+
+openvpn_is_running() {
+  if [ ! -f "$OPENVPN_PID_FILE" ]; then
+    return 1
+  fi
+  local pid
+  pid=$(cat "$OPENVPN_PID_FILE" 2>/dev/null || true)
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
+openvpn_up() {
+  local profile_file="$1"
+  require_cmd openvpn "Instale com: pkg_add install openvpn"
+
+  run_as_root mkdir -p "$STATE_DIR"
+  if openvpn_is_running; then
+    echo "OpenVPN já está ativo (PID $(cat "$OPENVPN_PID_FILE")). Use: vpn down --type openvpn" >&2
+    exit 1
+  fi
+
+  run_as_root openvpn \
+    --config "$profile_file" \
+    --daemon \
+    --writepid "$OPENVPN_PID_FILE" \
+    --log-append "$OPENVPN_LOG"
+  echo "$profile_file" | run_as_root tee "$OPENVPN_PROFILE_FILE" >/dev/null
+  echo "OpenVPN ativo com perfil: $profile_file"
+  echo "Log: $OPENVPN_LOG"
+}
+
+openvpn_down() {
+  if ! openvpn_is_running; then
+    echo "OpenVPN não está ativo."
+    run_as_root rm -f "$OPENVPN_PID_FILE" "$OPENVPN_PROFILE_FILE" || true
+    return
+  fi
+  local pid
+  pid=$(cat "$OPENVPN_PID_FILE")
+  run_as_root kill "$pid" || true
+  sleep 1
+  if kill -0 "$pid" 2>/dev/null; then
+    run_as_root kill -9 "$pid" || true
+  fi
+  run_as_root rm -f "$OPENVPN_PID_FILE" "$OPENVPN_PROFILE_FILE" || true
+  echo "OpenVPN finalizado."
+}
+
+wireguard_up() {
+  local profile_file="$1"
+  require_cmd wg-quick "Instale com: pkg_add install wireguard-tools"
+  run_as_root wg-quick up "$profile_file"
+}
+
+wireguard_down() {
+  local profile_file="$1"
+  require_cmd wg-quick "Instale com: pkg_add install wireguard-tools"
+  run_as_root wg-quick down "$profile_file"
+}
+
+status_all() {
+  echo "WireGuard:"
+  if command -v wg >/dev/null 2>&1; then
+    local ifaces
+    ifaces=$(wg show interfaces 2>/dev/null || true)
+    if [ -n "$ifaces" ]; then
+      echo "  interfaces ativas: $ifaces"
+    else
+      echo "  sem interfaces ativas"
+    fi
+  else
+    echo "  wg não instalado (pkg_add install wireguard-tools)"
+  fi
+
+  echo "OpenVPN:"
+  if command -v openvpn >/dev/null 2>&1; then
+    if openvpn_is_running; then
+      local pid profile
+      pid=$(cat "$OPENVPN_PID_FILE")
+      profile=$(cat "$OPENVPN_PROFILE_FILE" 2>/dev/null || echo "desconhecido")
+      echo "  ativo (PID $pid)"
+      echo "  perfil: $profile"
+      echo "  log: $OPENVPN_LOG"
+    else
+      echo "  inativo"
+    fi
+  else
+    echo "  openvpn não instalado (pkg_add install openvpn)"
+  fi
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  list)
+    list_profiles
+    ;;
+  up)
+    profile="${1:-}"
+    [ -n "$profile" ] || { echo "Uso: vpn up <perfil> [--type auto|wireguard|openvpn]" >&2; exit 1; }
+    shift || true
+    type="auto"
+    if [ "${1:-}" = "--type" ]; then
+      shift
+      type="${1:-auto}"
+      shift || true
+    fi
+
+    case "$type" in
+      wireguard)
+        wireguard_up "$(resolve_wireguard_profile "$profile")"
+        ;;
+      openvpn)
+        openvpn_up "$(resolve_openvpn_profile "$profile")"
+        ;;
+      auto)
+        if [[ "$profile" == *.ovpn ]]; then
+          openvpn_up "$(resolve_openvpn_profile "$profile")"
+        elif [ -f "${WG_DIR}/${profile}" ] || [ -f "${WG_DIR}/${profile}.conf" ]; then
+          wireguard_up "$(resolve_wireguard_profile "$profile")"
+        elif [ -f "${OVPN_DIR}/${profile}" ] || [ -f "${OVPN_DIR}/${profile}.ovpn" ] || [ -f "${OVPN_DIR}/${profile}.conf" ]; then
+          openvpn_up "$(resolve_openvpn_profile "$profile")"
+        elif [[ "$profile" == *.conf ]]; then
+          if [ -f "$profile" ] && grep -qi '^\s*\[Interface\]' "$profile"; then
+            wireguard_up "$profile"
+          else
+            openvpn_up "$(resolve_openvpn_profile "$profile")"
+          fi
+        else
+          wireguard_up "$(resolve_wireguard_profile "$profile")"
+        fi
+        ;;
+      *)
+        echo "Tipo inválido: $type" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  down)
+    profile="${1:-}"
+    type="auto"
+    if [ "$profile" = "--type" ]; then
+      profile=""
+    else
+      shift || true
+    fi
+    if [ "${1:-}" = "--type" ]; then
+      shift
+      type="${1:-auto}"
+      shift || true
+    fi
+
+    case "$type" in
+      wireguard)
+        if [ -z "$profile" ]; then
+          require_cmd wg "Instale com: pkg_add install wireguard-tools"
+          for iface in $(wg show interfaces 2>/dev/null || true); do
+            wireguard_down "$iface" || true
+          done
+        else
+          wireguard_down "$(resolve_wireguard_profile "$profile")"
+        fi
+        ;;
+      openvpn)
+        openvpn_down
+        ;;
+      auto)
+        if [ -n "$profile" ]; then
+          if [ -f "${OVPN_DIR}/${profile}" ] || [ -f "${OVPN_DIR}/${profile}.ovpn" ] || [ -f "${OVPN_DIR}/${profile}.conf" ] || [[ "$profile" == *.ovpn ]]; then
+            openvpn_down
+          else
+            wireguard_down "$(resolve_wireguard_profile "$profile")"
+          fi
+        else
+          openvpn_down || true
+          if command -v wg >/dev/null 2>&1; then
+            for iface in $(wg show interfaces 2>/dev/null || true); do
+              wireguard_down "$iface" || true
+            done
+          fi
+        fi
+        ;;
+      *)
+        echo "Tipo inválido: $type" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  status)
+    status_all
+    ;;
+  --help|-h|help|"")
+    usage
+    ;;
+  *)
+    echo "Comando inválido: $cmd" >&2
+    usage
+    exit 1
+    ;;
+esac

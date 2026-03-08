@@ -1,0 +1,9 @@
+services:
+  devops-tools:
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      net.ipv4.ip_forward: "${ENABLE_WG_FORWARDING:-0}"
+      net.ipv6.conf.all.forwarding: "${ENABLE_WG_FORWARDING:-0}"

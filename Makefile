@@ -18,7 +18,7 @@ BUILD_OPTS ?= --network=host
 # Export variables to recipes
 export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
 
-.PHONY: help build push tag-latest run bump-patch bump-minor bump-major version
+.PHONY: help build push tag-latest run compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
 
 help:
 	@echo "Targets:"
@@ -26,6 +26,10 @@ help:
 	@echo "  push           Push image $(IMAGE):$(TAG)"
 	@echo "  tag-latest     Tag $(IMAGE):$(TAG) as latest and push"
 	@echo "  run            Run using run.sh with IMAGE/TAG"
+	@echo "  compose-up     Start conventional daemon mode via docker compose"
+	@echo "  compose-up-vpn Start daemon mode with VPN capabilities (NET_ADMIN + /dev/net/tun)"
+	@echo "  compose-shell  Open shell in compose daemon container"
+	@echo "  compose-down   Stop/remove compose daemon container"
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
@@ -52,6 +56,18 @@ tag-latest:
 
 run:
 	DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) ./run.sh
+
+compose-up:
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d
+
+compose-up-vpn:
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d
+
+compose-shell:
+	docker compose exec devops-tools bash
+
+compose-down:
+	docker compose down
 
 # Convenience target for Brazil mirror
 .PHONY: build-br
