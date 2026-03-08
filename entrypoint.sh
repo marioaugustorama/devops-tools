@@ -129,7 +129,7 @@ export PKG_STATE
 export APT_STATE_FILE
 export PKG_AUTO_LIST
 
-# Loader sob demanda: cria handler command_not_found para instalar via pkg_add quando houver pacote com mesmo nome
+# Loader de sugestão: cria command_not_found_handle com recomendação de pacote.
 create_lazy_loader() {
     if [ "$PKG_LAZY_INSTALL" = "0" ]; then
         return
@@ -138,24 +138,15 @@ create_lazy_loader() {
     cat > "$LAZY_LOADER_FILE" <<'EOF'
 command_not_found_handle() {
     local cmd="$1"
-    shift
-    if [ "${PKG_LAZY_INSTALL:-1}" = "0" ]; then
-        printf "bash: %s: command not found\n" "$cmd" >&2
-        return 127
+    if [ "${PKG_LAZY_INSTALL:-1}" = "1" ] && command -v pkg_add >/dev/null 2>&1; then
+        if pkg_add suggest --raw "$cmd" >/dev/null 2>&1; then
+            pkg_add suggest "$cmd"
+            return 127
+        fi
     fi
 
-    if ! pkg_add info "$cmd" >/dev/null 2>&1; then
-        printf "bash: %s: command not found (pacote não encontrado)\n" "$cmd" >&2
-        return 127
-    fi
-
-    echo "[pkg_add] Instalando pacote '$cmd' sob demanda..."
-    if pkg_add install "$cmd"; then
-        exec "$cmd" "$@"
-    else
-        echo "[pkg_add] Falha ao instalar '$cmd'" >&2
-        return 127
-    fi
+    printf "bash: %s: command not found\n" "$cmd" >&2
+    return 127
 }
 EOF
 
