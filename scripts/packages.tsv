@@ -11,11 +11,11 @@ helm	Gerenciador de pacotes para Kubernetes.	k8s	1
 k9s	Interface TUI para administrar clusters Kubernetes.	k8s	1
 kubebox	Dashboard de terminal para Kubernetes.	k8s	0
 kubectl	CLI padrão do Kubernetes para aplicar e inspecionar recursos.	k8s	1
-kubectl-tree	Plugin kubectl para listar árvore de recursos.	k8s	1
-kubespy	Watcher de eventos de recursos Kubernetes em tempo real.	k8s	1
-kubectx	Switch de contextos do kubectl.	k8s	1
-kubens	Switch de namespaces do kubectl.	k8s	1
-mc	Cliente MinIO compatível com S3 (mc).	storage	1
+kubectl-tree	Plugin kubectl para listar árvore de recursos.	k8s	0
+kubespy	Watcher de eventos de recursos Kubernetes em tempo real.	k8s	0
+kubectx	Switch de contextos do kubectl.	k8s	0
+kubens	Switch de namespaces do kubectl.	k8s	0
+mc	Cliente MinIO compatível com S3 (mc).	storage	0
 mongodb	MongoDB tools: mongosh, mongodump, mongorestore (alias mongobackup).	database	0
 openvpn	Cliente OpenVPN para conexões VPN via arquivo .ovpn/.conf.	network	0
 opentofu	CLI OpenTofu (fork open source do Terraform).	iac	0

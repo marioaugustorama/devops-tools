@@ -264,6 +264,10 @@ Variáveis úteis:
 - Instalar pacotes específicos: `pkg_add install kubectl helm doctl` (use `--force` para reinstalar)
 - Desabilitar marcação de instalado (não desinstala): `pkg_add disable eksctl`
 
+Nota de segurança (release de fixes `v1.18.9-1`):
+- Alguns binários com maior incidência de CVEs de upstream Go passaram para modo on-demand no build padrão: `kubespy`, `kubectx`, `kubens`, `kubectl-tree` e `mc`.
+- Eles continuam disponíveis normalmente via `pkg_add install <pacote>`.
+
 Os pacotes são definidos em `scripts/packages.tsv` com 4 colunas:
 - `name`, `description`, `group`, `default_install (0|1)`.
 - O build padrão (`run_all.sh`) instala só os pacotes com `default_install=1`; os demais ficam sob demanda via `pkg_add`.
