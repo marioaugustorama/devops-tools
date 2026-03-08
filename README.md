@@ -120,6 +120,12 @@ Use o modo conforme o seu cenário:
 
 #### 1) Daemon com Docker Compose (`up -d`)
 
+Se preferir, gere o `.env` automaticamente antes de subir:
+
+```bash
+bin/init-compose-env
+```
+
 Suba o container em background:
 
 ```bash
@@ -277,6 +283,31 @@ Os pacotes são definidos em `scripts/packages.tsv` com 4 colunas:
 - O build padrão (`run_all.sh`) instala só os pacotes com `default_install=1`; os demais ficam sob demanda via `pkg_add`.
 - Também é possível filtrar build por grupo com `RUN_ALL_GROUPS=...` e forçar tudo com `RUN_ALL_MODE=all`.
 - O grupo `core` concentra ferramentas de uso diário (ex.: `docker`, `ipcalc`, `less`, `updatedb`).
+
+### TUI (MVP com Textual)
+
+A TUI é opcional e não substitui os comandos/shell existentes.
+
+- Comando: `devops-tui`
+- Stack: Python + Textual
+- Telas do MVP:
+  - `Home`: resumo do ambiente, checks de paths/binários e saúde do backup service
+  - `Packages`: catálogo de `scripts/packages.tsv`, filtro e instalação via `pkg_add install <pacote>`
+  - `Backups`: lista/criação/detalhes/exclusão de backups via `tools-web` (com fallback local)
+  - `Logs`: painel central com saídas de ações executadas pela TUI
+
+Execução dentro do container:
+
+```bash
+devops-tui
+```
+
+Execução no repositório local (fora do container):
+
+```bash
+pip3 install textual
+bin/devops-tui
+```
 
 #### Cache local de artefatos (modo offline/4G)
 - Instaladores de binários (ex.: `helm`, `kubectl`, `terraform`, `opentofu`, `mongodb`) agora usam cache local persistente.

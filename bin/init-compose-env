@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT_DIR}/.env"
 VERSION_FILE="${ROOT_DIR}/version"
 
-local_uid=$(id -u)
-local_gid=$(id -g)
-docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
-devops_tag=$(cat "$VERSION_FILE" 2>/dev/null || echo "latest")
+local_uid="$(id -u)"
+local_gid="$(id -g)"
+docker_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || true)"
+devops_tag="$(cat "$VERSION_FILE" 2>/dev/null || echo "latest")"
 
 if [ -z "${docker_gid:-}" ]; then
   echo "Erro: não foi possível ler o GID de /var/run/docker.sock." >&2
