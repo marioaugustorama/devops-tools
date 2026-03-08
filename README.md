@@ -6,6 +6,8 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 
 Alvos principais:
 - `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`.
+- `make security-scan [TAG=...]` executa scan Trivy (HIGH/CRITICAL por padrão).
+- `make security-gate [TAG=...]` igual ao scan, mas falha (`exit 1`) quando encontra vulnerabilidades.
 - `make push [TAG=...]` publica a imagem atual.
 - `make tag-latest` marca a imagem atual como `latest` e envia.
 - `make run [TAG=...]` sobe o container via `run.sh` com `IMAGE/TAG` definidos.
@@ -32,6 +34,8 @@ make compose-up TAG=v1.18.5
 # Rodar em modo daemon com VPN no container
 make compose-up-vpn TAG=v1.18.5
 make compose-shell
+# Gate de segurança na imagem padrão
+make security-gate TAG=v1.18.9-1
 ```
 
 

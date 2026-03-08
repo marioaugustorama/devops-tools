@@ -14,15 +14,19 @@ STRICT_CHECKSUM ?= 1
 
 # Docker build options
 BUILD_OPTS ?= --network=host
+TRIVY_SEVERITY ?= HIGH,CRITICAL
+TRIVY_OPTS ?= --ignore-unfixed
 
 # Export variables to recipes
 export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
 
-.PHONY: help build push tag-latest run compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
+.PHONY: help build security-scan security-gate push tag-latest run compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
 
 help:
 	@echo "Targets:"
 	@echo "  build          Build image $(IMAGE):$(TAG) (host network by default)"
+	@echo "  security-scan  Run Trivy scan (HIGH/CRITICAL by default)"
+	@echo "  security-gate  Run Trivy scan and fail on findings"
 	@echo "  push           Push image $(IMAGE):$(TAG)"
 	@echo "  tag-latest     Tag $(IMAGE):$(TAG) as latest and push"
 	@echo "  run            Run using run.sh with IMAGE/TAG"
@@ -33,7 +37,7 @@ help:
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
-	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS"
+	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, TRIVY_SEVERITY, TRIVY_OPTS"
 	@echo "Examples:"
 	@echo "  make build TAG=v1.17.0"
 	@echo "  make build TAG=v1.17.0 APT_MIRROR=http://br.archive.ubuntu.com/ubuntu"
@@ -46,6 +50,12 @@ build:
 	  --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
 	  --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
 	  -t $(IMAGE):$(TAG) .
+
+security-scan:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.61.1 image --scanners vuln --severity $(TRIVY_SEVERITY) $(TRIVY_OPTS) $(IMAGE):$(TAG)
+
+security-gate:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.61.1 image --scanners vuln --severity $(TRIVY_SEVERITY) $(TRIVY_OPTS) --exit-code 1 $(IMAGE):$(TAG)
 
 push:
 	docker push $(IMAGE):$(TAG)

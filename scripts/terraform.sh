@@ -9,32 +9,30 @@ VERSION="${TERRAFORM_VERSION:-1.14.3}"
 FILENAME="terraform_${VERSION}_linux_amd64.zip"
 DOWNLOAD_URL="https://releases.hashicorp.com/terraform/${VERSION}/${FILENAME}"
 BINARY_NAME="terraform"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 echo "Baixando Terraform versão ${VERSION}..."
 
 # Baixa o arquivo
-curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$FILENAME" "$DOWNLOAD_URL" || error_exit "Falha ao baixar o Terraform"
+cache_download "$DOWNLOAD_URL" "${TMP_DIR}/${FILENAME}" "$FILENAME"
 
 # Verifica se o arquivo foi baixado corretamente
-if [ ! -f "$FILENAME" ]; then
+if [ ! -f "${TMP_DIR}/${FILENAME}" ]; then
     error_exit "O arquivo $FILENAME não foi encontrado."
 fi
 
 # Extrai o arquivo
 echo "Extraindo o arquivo ZIP..."
-unzip -o "$FILENAME" || error_exit "Falha ao extrair o arquivo ZIP"
+unzip -o "${TMP_DIR}/${FILENAME}" -d "$TMP_DIR" || error_exit "Falha ao extrair o arquivo ZIP"
 
 # Verifica se o binário foi extraído
-if [ ! -f "$BINARY_NAME" ]; then
+if [ ! -f "${TMP_DIR}/${BINARY_NAME}" ]; then
     error_exit "O binário '$BINARY_NAME' não foi encontrado após a extração."
 fi
 
 # Instala o Terraform
 echo "Instalando Terraform..."
-install -o root -g root -m 0755 "$BINARY_NAME" /usr/local/bin/ || error_exit "Falha ao instalar o Terraform"
-
-# Limpeza
-echo "Limpando arquivos temporários..."
-rm -rf "$FILENAME" "$BINARY_NAME" LICENSE.txt || error_exit "Falha ao limpar arquivos temporários"
+install -o root -g root -m 0755 "${TMP_DIR}/${BINARY_NAME}" /usr/local/bin/ || error_exit "Falha ao instalar o Terraform"
 
 echo "Instalação do Terraform concluída com sucesso."

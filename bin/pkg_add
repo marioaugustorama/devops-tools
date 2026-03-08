@@ -12,17 +12,21 @@ PKG_REMOTE_SCRIPTS_DIR="${PKG_REMOTE_SCRIPTS_DIR:-}"
 
 AVAILABLE=()
 declare -A PKG_DESC
+declare -A PKG_GROUP
+declare -A PKG_DEFAULT
 
 usage() {
   cat >&2 <<EOF
 Uso: $0 <comando> [opções]
 
 Comandos:
-  list [--installed]   Lista pacotes disponíveis (ou só os instalados)
+  list [--installed] [--group <grupo>]
+                       Lista pacotes disponíveis (ou só os instalados)
+  groups               Lista grupos disponíveis no manifesto
   status               Lista pacotes e se já foram instalados via pkg_add
   info <pacote>        Mostra detalhes de um pacote
-  install [--all] [--force] <pacote> [pacote...]
-                       Instala um ou mais pacotes (ou todos com --all)
+  install [--all] [--group <grupo>] [--force] <pacote> [pacote...]
+                       Instala pacotes específicos, todos (--all) ou por grupo
   disable <pacote>...  Marca pacotes como desabilitados (remove da lista instalada)
   update               Atualiza manifestos/scripts a partir de repositório remoto (se configurado)
 
@@ -50,14 +54,41 @@ try_run_sudo() {
   fi
 }
 
+normalize_bool() {
+  local value="${1:-}"
+  value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
+  case "$value" in
+    1|true|yes|y|on|sim) echo "1" ;;
+    0|false|no|n|off|nao|não) echo "0" ;;
+    *) echo "0" ;;
+  esac
+}
+
+append_unique() {
+  local value="$1"
+  shift || true
+  for item in "$@"; do
+    [ "$item" = "$value" ] && return 0
+  done
+  return 1
+}
+
 load_packages() {
   AVAILABLE=()
   PKG_DESC=()
+  PKG_GROUP=()
+  PKG_DEFAULT=()
+
   if [ -f "$PKG_INDEX" ]; then
-    while IFS=$'\t' read -r name desc; do
+    while IFS=$'\t' read -r name desc group default_install; do
       [[ -z "${name:-}" || "${name:0:1}" == "#" ]] && continue
+      group="${group:-general}"
+      default_install="${default_install:-1}"
+
       AVAILABLE+=("$name")
-      PKG_DESC["$name"]="$desc"
+      PKG_DESC["$name"]="${desc:-$name}"
+      PKG_GROUP["$name"]="$group"
+      PKG_DEFAULT["$name"]="$(normalize_bool "$default_install")"
     done < "$PKG_INDEX"
   fi
 
@@ -67,6 +98,8 @@ load_packages() {
       name="${name%.*}"
       AVAILABLE+=("$name")
       PKG_DESC["$name"]="$name"
+      PKG_GROUP["$name"]="general"
+      PKG_DEFAULT["$name"]="1"
     done
   fi
 }
@@ -116,16 +149,45 @@ require_packages_exist() {
   fi
 }
 
+is_in_group_filter() {
+  local pkg_group="$1"
+  local selected_groups="${2:-}"
+  [ -z "$selected_groups" ] && return 0
+
+  IFS=',' read -r -a groups <<< "$selected_groups"
+  for group in "${groups[@]}"; do
+    group="$(echo "$group" | xargs)"
+    [ -z "$group" ] && continue
+    [ "$pkg_group" = "$group" ] && return 0
+  done
+  return 1
+}
+
 print_list() {
   load_packages
   local only_installed=false
-  if [ "${1-}" = "--installed" ]; then
-    only_installed=true
-  fi
+  local group_filter=""
 
-  # Conta filtrando instalados se necessário
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --installed) only_installed=true ;;
+      --group)
+        shift
+        group_filter="${1:-}"
+        [ -n "$group_filter" ] || { echo "Uso: $0 list [--installed] [--group <grupo>]" >&2; exit 1; }
+        ;;
+      *)
+        echo "Opção inválida para list: $1" >&2
+        echo "Uso: $0 list [--installed] [--group <grupo>]" >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
   local count=0
   for pkg in "${AVAILABLE[@]}"; do
+    is_in_group_filter "${PKG_GROUP[$pkg]}" "$group_filter" || continue
     if $only_installed; then
       is_marked_installed "$pkg" || continue
     fi
@@ -135,14 +197,36 @@ print_list() {
   if $only_installed; then
     printf -- "Pacotes instalados (%d):\n" "$count"
   else
-    printf -- "Pacotes disponíveis (%d):\n" "${#AVAILABLE[@]}"
+    printf -- "Pacotes disponíveis (%d):\n" "$count"
   fi
 
   for pkg in "${AVAILABLE[@]}"; do
+    is_in_group_filter "${PKG_GROUP[$pkg]}" "$group_filter" || continue
     if $only_installed && ! is_marked_installed "$pkg"; then
       continue
     fi
-    printf -- "- %-16s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
+    local default_label="on-demand"
+    [ "${PKG_DEFAULT[$pkg]}" = "1" ] && default_label="default"
+    printf -- "- %-16s [%s|%s] %s\n" "$pkg" "${PKG_GROUP[$pkg]}" "$default_label" "${PKG_DESC[$pkg]}"
+  done
+}
+
+print_groups() {
+  load_packages
+  local groups
+  groups=$(for pkg in "${AVAILABLE[@]}"; do echo "${PKG_GROUP[$pkg]}"; done | sort -u)
+  if [ -z "$groups" ]; then
+    echo "Nenhum grupo encontrado."
+    return
+  fi
+  echo "Grupos disponíveis:"
+  echo "$groups" | while IFS= read -r group; do
+    [ -z "$group" ] && continue
+    local count=0
+    for pkg in "${AVAILABLE[@]}"; do
+      [ "${PKG_GROUP[$pkg]}" = "$group" ] && count=$((count+1))
+    done
+    printf -- "- %s (%d pacote(s))\n" "$group" "$count"
   done
 }
 
@@ -150,10 +234,12 @@ print_status() {
   load_packages
   printf -- "Status dos pacotes:\n"
   for pkg in "${AVAILABLE[@]}"; do
+    local default_label="on-demand"
+    [ "${PKG_DEFAULT[$pkg]}" = "1" ] && default_label="default"
     if is_marked_installed "$pkg"; then
-      printf -- "[instalado] %-14s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
+      printf -- "[instalado] %-14s [%s|%s] %s\n" "$pkg" "${PKG_GROUP[$pkg]}" "$default_label" "${PKG_DESC[$pkg]}"
     else
-      printf -- "[pendente ] %-14s %s\n" "$pkg" "${PKG_DESC[$pkg]}"
+      printf -- "[pendente ] %-14s [%s|%s] %s\n" "$pkg" "${PKG_GROUP[$pkg]}" "$default_label" "${PKG_DESC[$pkg]}"
     fi
   done
 }
@@ -167,14 +253,20 @@ print_info() {
   fi
   require_packages_exist "$pkg"
   local desc="${PKG_DESC[$pkg]:-$pkg}"
+  local group="${PKG_GROUP[$pkg]:-general}"
+  local default_install="${PKG_DEFAULT[$pkg]:-1}"
   local script_path="$SCRIPTS_DIR/$pkg.sh"
   local status="pendente"
+  local default_label="não"
+  [ "$default_install" = "1" ] && default_label="sim"
   if is_marked_installed "$pkg"; then
     status="instalado"
   fi
   cat <<EOF
 Pacote:      $pkg
 Descrição:   $desc
+Grupo:       $group
+Default:     $default_label (instala no build padrão)
 Script:      $script_path
 Status:      $status (via pkg_add)
 EOF
@@ -182,24 +274,43 @@ EOF
 
 install_packages() {
   local force=false all=false
+  local group_filter=""
   local args=()
+
   while [ $# -gt 0 ]; do
     case "$1" in
       --force|-f) force=true ;;
       --all) all=true ;;
+      --group)
+        shift
+        group_filter="${1:-}"
+        [ -n "$group_filter" ] || { echo "Uso: $0 install [--all] [--group <grupo>] [--force] <pacote> [pacote...]" >&2; exit 1; }
+        ;;
       *) args+=("$1") ;;
     esac
     shift
   done
 
   load_packages
-  local targets=("${args[@]}")
+  local targets=()
+
   if $all; then
     targets=("${AVAILABLE[@]}")
+  elif [ -n "$group_filter" ]; then
+    for pkg in "${AVAILABLE[@]}"; do
+      is_in_group_filter "${PKG_GROUP[$pkg]}" "$group_filter" || continue
+      targets+=("$pkg")
+    done
   fi
 
+  for requested in "${args[@]}"; do
+    if ! append_unique "$requested" "${targets[@]}"; then
+      targets+=("$requested")
+    fi
+  done
+
   if [ ${#targets[@]} -eq 0 ]; then
-    echo "Uso: $0 install [--all] [--force] <pacote> [pacote...]" >&2
+    echo "Uso: $0 install [--all] [--group <grupo>] [--force] <pacote> [pacote...]" >&2
     exit 1
   fi
 
@@ -292,6 +403,9 @@ COMMAND="$1"; shift || true
 case "$COMMAND" in
   list)
     print_list "$@"
+    ;;
+  groups)
+    print_groups
     ;;
   status)
     print_status
