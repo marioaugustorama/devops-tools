@@ -4,7 +4,7 @@ set -euo pipefail
 VERSION_FILE=${VERSION_FILE:-version}
 
 usage() {
-  echo "Uso: $0 <show|bump {major|minor|patch}> [--stage]" >&2
+  echo "Uso: $0 <show|bump {major|minor|patch|revision}> [--stage]" >&2
 }
 
 stage=false
@@ -34,19 +34,28 @@ write_version() {
 }
 
 normalize() {
-  # entra: v1.2.3 ou 1.2.3 -> sai: prefix("v"|"") major minor patch
+  # entra: v1.2.3, 1.2.3, v1.2.3-4 -> sai: prefix major minor patch revision
   local v="$1"
   local prefix=""
+  local revision="0"
   if [[ $v == v* ]]; then
     prefix="v"
     v=${v#v}
   fi
+  if [[ $v == *-* ]]; then
+    revision="${v##*-}"
+    v="${v%-*}"
+  fi
   IFS='.' read -r major minor patch <<< "$v"
   if [[ -z ${major-} || -z ${minor-} || -z ${patch-} ]]; then
-    echo "Versão inválida: $1 (esperado: vMAJOR.MINOR.PATCH)" >&2
+    echo "Versão inválida: $1 (esperado: vMAJOR.MINOR.PATCH ou vMAJOR.MINOR.PATCH-REV)" >&2
     exit 1
   fi
-  echo "$prefix" "$major" "$minor" "$patch"
+  if [[ ! $revision =~ ^[0-9]+$ ]]; then
+    echo "Revisão inválida em: $1" >&2
+    exit 1
+  fi
+  echo "$prefix" "$major" "$minor" "$patch" "$revision"
 }
 
 case "$cmd" in
@@ -57,21 +66,25 @@ case "$cmd" in
     kind=${1-}
     if [[ -z ${kind} ]]; then usage; exit 1; fi
     cur=$(read_version)
-    read -r prefix major minor patch < <(normalize "$cur")
+    read -r prefix major minor patch revision < <(normalize "$cur")
     case "$kind" in
       major)
-        major=$((major+1)); minor=0; patch=0 ;;
+        major=$((major+1)); minor=0; patch=0; revision=0 ;;
       minor)
-        minor=$((minor+1)); patch=0 ;;
+        minor=$((minor+1)); patch=0; revision=0 ;;
       patch)
-        patch=$((patch+1)) ;;
-      *) echo "Tipo inválido: $kind (major|minor|patch)" >&2; exit 1 ;;
+        patch=$((patch+1)); revision=0 ;;
+      revision)
+        revision=$((revision+1)) ;;
+      *) echo "Tipo inválido: $kind (major|minor|patch|revision)" >&2; exit 1 ;;
     esac
     new="$prefix$major.$minor.$patch"
+    if [[ $revision -gt 0 ]]; then
+      new="${new}-${revision}"
+    fi
     write_version "$new"
     echo "$cur -> $new"
     ;;
   *)
     usage; exit 1 ;;
 esac
-

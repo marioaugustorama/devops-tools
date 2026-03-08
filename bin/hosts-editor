@@ -81,12 +81,24 @@ def load_lines(path: pathlib.Path) -> List[str]:
 
 def write_lines(path: pathlib.Path, lines: Iterable[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    content = "\n".join(line.rstrip("\n") for line in lines).rstrip() + "\n"
     tmp = tempfile.NamedTemporaryFile(
         "w", delete=False, dir=str(path.parent), encoding="utf-8"
     )
     with tmp:
-        tmp.write("\n".join(line.rstrip("\n") for line in lines).rstrip() + "\n")
-    os.replace(tmp.name, path)
+        tmp.write(content)
+    try:
+        os.replace(tmp.name, path)
+        return
+    except OSError as exc:
+        if exc.errno != 16:
+            os.unlink(tmp.name)
+            raise
+
+    # /etc/hosts dentro de containers costuma ser um mount especial que não aceita rename.
+    with path.open("w", encoding="utf-8") as handle:
+        handle.write(content)
+    os.unlink(tmp.name)
 
 
 def backup(path: pathlib.Path) -> pathlib.Path:
