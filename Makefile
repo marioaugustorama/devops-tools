@@ -48,6 +48,7 @@ build:
 	docker build $(BUILD_OPTS) \
 	  --build-arg APT_MIRROR=$(APT_MIRROR) \
 	  --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
+	  --build-arg APP_VERSION=$(TAG) \
 	  --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
 	  -t $(IMAGE):$(TAG) .
 
@@ -74,10 +75,10 @@ compose-up-vpn:
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d
 
 compose-shell:
-	docker compose exec devops-tools bash
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose exec devops-tools bash
 
 compose-down:
-	docker compose down
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose down
 
 # Convenience target for Brazil mirror
 .PHONY: build-br

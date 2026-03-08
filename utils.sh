@@ -68,3 +68,45 @@ cache_download() {
     mv -f "$tmp_cache" "$cache_path" || error_exit "Falha ao persistir artefato no cache: $cache_name"
     cp -f "$cache_path" "$output_path" || error_exit "Falha ao copiar artefato baixado para destino: $output_path"
 }
+
+# Resolve comando -> pacote a partir de um índice TSV local.
+# Formatos de saída:
+# - human (padrão): mensagem amigável para terminal
+# - raw: imprime somente o pacote
+# - tsv: imprime comando<TAB>pacote<TAB>descrição
+suggest_package_for_command() {
+    local command_name="${1:-}"
+    local output_mode="${2:-human}"
+    local commands_index="${COMMANDS_INDEX:-/usr/local/scripts/commands.tsv}"
+    local map_cmd map_pkg map_desc
+
+    [ -n "$command_name" ] || return 2
+    [ -f "$commands_index" ] || return 1
+
+    while IFS=$'\t' read -r map_cmd map_pkg map_desc; do
+        [[ -z "${map_cmd:-}" || "${map_cmd:0:1}" == "#" ]] && continue
+        [ "$map_cmd" = "$command_name" ] || continue
+
+        map_desc="${map_desc:-Sem descrição}"
+        case "$output_mode" in
+            raw)
+                printf "%s\n" "$map_pkg"
+                ;;
+            tsv)
+                printf "%s\t%s\t%s\n" "$map_cmd" "$map_pkg" "$map_desc"
+                ;;
+            *)
+                cat <<EOF
+Comando '$command_name' não encontrado.
+Pacote sugerido: $map_pkg
+Descrição: $map_desc
+Para instalar:
+  pkg_add install $map_pkg
+EOF
+                ;;
+        esac
+        return 0
+    done < "$commands_index"
+
+    return 1
+}

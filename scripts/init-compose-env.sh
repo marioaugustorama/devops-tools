@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ENV_FILE="${ROOT_DIR}/.env"
+VERSION_FILE="${ROOT_DIR}/version"
+
+local_uid=$(id -u)
+local_gid=$(id -g)
+docker_gid=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
+devops_tag=$(cat "$VERSION_FILE" 2>/dev/null || echo "latest")
+
+if [ -z "${docker_gid:-}" ]; then
+  echo "Erro: não foi possível ler o GID de /var/run/docker.sock." >&2
+  echo "Verifique se o Docker está instalado/rodando e se o socket existe." >&2
+  exit 1
+fi
+
+cat > "$ENV_FILE" <<EOF
+LOCAL_USER_ID=${local_uid}
+LOCAL_GROUP_ID=${local_gid}
+DOCKER_GID=${docker_gid}
+DEVOPS_IMAGE=marioaugustorama/devops-tools
+DEVOPS_TAG=${devops_tag}
+APP_VERSION=${devops_tag}
+IP_BIND=0.0.0.0
+DEVOPS_PORTS=30000-30005:30000-30005
+EOF
+
+echo "Arquivo .env gerado em: $ENV_FILE"
+echo "LOCAL_USER_ID=$local_uid LOCAL_GROUP_ID=$local_gid DOCKER_GID=$docker_gid DEVOPS_TAG=$devops_tag"

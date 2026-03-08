@@ -1,0 +1,31 @@
+# command<TAB>package<TAB>description
+kubectl	kubectl	Kubernetes CLI
+helm	helm	Gerenciador de charts do Kubernetes
+k9s	k9s	Terminal UI para Kubernetes
+kubectx	kubectx	Switch de contexto do kubectl
+kubens	kubens	Switch de namespace do kubectl
+kubectl-tree	kubectl-tree	Plugin para visualizar árvore de recursos
+kubespy	kubespy	Watcher de eventos de recursos Kubernetes
+eksctl	eksctl	CLI para criação e gestão de clusters EKS
+eks-node-viewer	eks-node-viewer	Visualizador de nós EKS no terminal
+terraform	terraform	Infrastructure as Code
+tofu	opentofu	CLI OpenTofu
+vault	vault	HashiCorp Vault CLI
+aws	awscli	AWS CLI
+doctl	doctl	DigitalOcean CLI
+az	azure-tools	Azure CLI
+azcopy	azure-tools	Ferramenta de cópia para Azure Storage
+mc	mc	MinIO Client compatível com S3
+rclone	rclone	Sincronização de arquivos multi-cloud
+bw	bitwarden	Bitwarden CLI para gestão de segredos
+mongosh	mongodb	MongoDB Shell
+mongodump	mongodb	MongoDB dump tool
+mongorestore	mongodb	MongoDB restore tool
+mongobackup	mongodb	Alias para backup MongoDB tools
+openvpn	openvpn	Cliente OpenVPN
+wg	wireguard-tools	WireGuard userspace tool
+wg-quick	wireguard-tools	Helper do WireGuard
+mysql	mysql-client	MySQL client
+psql	postgresql-client	PostgreSQL client
+dig	dnsutils	DNS lookup utility
+nslookup	dnsutils	DNS lookup utility

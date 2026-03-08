@@ -2,13 +2,14 @@ services:
   devops-tools:
     image: ${DEVOPS_IMAGE:-marioaugustorama/devops-tools}:${DEVOPS_TAG:-latest}
     container_name: ${DEVOPS_CONTAINER_NAME:-devops-tools-daemon}
+    init: true
     user: "${LOCAL_USER_ID:-1000}:${LOCAL_GROUP_ID:-1000}"
     privileged: true
     restart: unless-stopped
     tty: true
     stdin_open: true
     group_add:
-      - "${DOCKER_GID:-0}"
+      - "${DOCKER_GID:?Set DOCKER_GID para o GID de /var/run/docker.sock}"
     ports:
       - "${IP_BIND:-0.0.0.0}:${DEVOPS_PORTS:-30000-30005:30000-30005}"
     environment:

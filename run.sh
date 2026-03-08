@@ -105,6 +105,7 @@ run() {
 
     docker_flags=(
         --name devops-tools
+        --init
         --privileged
         -it --tty --rm
         -u "$USER_ID:$GROUP_ID"

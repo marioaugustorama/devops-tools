@@ -15,6 +15,7 @@ id_ed25519
 known_hosts
 .env
 .env.*
+!.env.example
 
 # Credenciais de nuvem e ferramentas
 .kube/
