@@ -4,6 +4,7 @@ source /usr/local/bin/utils.sh
 
 REPO="ahmetb/kubectx"
 VERSION="${KUBECTX_VERSION:-v0.9.5}"
+REQUESTED_BINARIES=("$@")
 arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
 case "$arch" in
   amd64|x86_64) ASSET_ARCH="linux_x86_64" ;;
@@ -27,7 +28,7 @@ download_and_install() {
   local tar
   tar=$(basename "$url")
   echo "Baixando ${name} (${tar})..."
-  curl -fLs "$url" -o "$tar" || error_exit "Falha ao baixar ${tar}"
+  cache_download "$url" "$tar" "$tar"
   echo "Extraindo ${tar}..."
   tar xzf "$tar" || error_exit "Falha ao extrair ${tar}"
   if [ ! -f "$name" ]; then
@@ -38,7 +39,19 @@ download_and_install() {
   rm -f "$tar" "$name"
 }
 
-download_and_install "kubectx"
-download_and_install "kubens"
+if [ ${#REQUESTED_BINARIES[@]} -eq 0 ]; then
+  REQUESTED_BINARIES=("kubectx" "kubens")
+fi
+
+for binary in "${REQUESTED_BINARIES[@]}"; do
+  case "$binary" in
+    kubectx|kubens)
+      download_and_install "$binary"
+      ;;
+    *)
+      error_exit "Binário não suportado para este instalador: $binary"
+      ;;
+  esac
+done
 
 echo "kubectx/kubens instalados com sucesso."
