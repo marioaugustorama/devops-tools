@@ -1,3 +1,7 @@
 if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
     . /etc/bash_completion
 fi
+
+if [ -f /usr/local/lib/devops-tools/client/client-shell.sh ]; then
+    . /usr/local/lib/devops-tools/client/client-shell.sh
+fi

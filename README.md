@@ -457,3 +457,54 @@ vpn down --type openvpn
 Observações:
 - `vpn up`/`vpn down` usam `sudo` automaticamente quando necessário.
 - OpenVPN roda em background e grava log em `/var/log/openvpn-client.log`.
+
+### Contextos por cliente dentro do container
+
+Para separar kubeconfig, SSH, Docker config e perfis VPN por cliente, use o comando `client`.
+
+Estrutura esperada:
+
+```text
+/tools/clients/<cliente>/
+  .kube/config
+  .ssh/config
+  .ssh/known_hosts
+  .docker/
+  wireguard/
+  openvpn/
+  env.sh
+  aliases.sh
+  bin/
+```
+
+Fluxo básico:
+
+```bash
+# criar a estrutura base
+client init acme
+
+# ativar o cliente na shell atual
+client use acme
+
+# ver cliente ativo
+client current
+
+# abrir uma nova shell já no contexto do cliente
+client enter acme
+
+# limpar o contexto atual
+client clear
+```
+
+Ao ativar um cliente, o shell passa a usar:
+- `KUBECONFIG=/tools/clients/<cliente>/.kube/config`
+- `DOCKER_CONFIG=/tools/clients/<cliente>/.docker`
+- `WG_DIR=/tools/clients/<cliente>/wireguard`
+- `OVPN_DIR=/tools/clients/<cliente>/openvpn`
+- `ssh`/`scp` com `-F /tools/clients/<cliente>/.ssh/config`
+
+Notas:
+- `env.sh` é carregado automaticamente no `client use`.
+- `aliases.sh` é carregado automaticamente no `client use`.
+- O prompt passa a mostrar `[client:<nome>]`.
+- Esta primeira versão isola contexto e sessão; não cria namespace de rede por cliente.

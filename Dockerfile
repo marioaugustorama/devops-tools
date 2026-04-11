@@ -121,12 +121,14 @@ COPY utils.sh /usr/local/bin
 COPY bin/pkg_add /usr/local/bin
 COPY bin/pkg_apt /usr/local/bin
 COPY bin/devops-tui /usr/local/bin
+COPY bin/client /usr/local/bin
 COPY bin/ssh-connect /usr/local/bin
 COPY bin/hosts-editor /usr/local/bin
 COPY bin/enable-docs /usr/local/bin
 COPY bin/secret-run /usr/local/bin
 COPY bin/vpn /usr/local/bin
-RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pkg_add /usr/local/bin/pkg_apt /usr/local/bin/devops-tui /usr/local/bin/ssh-connect /usr/local/bin/hosts-editor /usr/local/bin/enable-docs /usr/local/bin/secret-run /usr/local/bin/vpn
+COPY client /usr/local/lib/devops-tools/client
+RUN chmod +x /usr/local/scripts/*.sh /usr/local/bin/run_all.sh /usr/local/bin/pkg_add /usr/local/bin/pkg_apt /usr/local/bin/devops-tui /usr/local/bin/client /usr/local/bin/ssh-connect /usr/local/bin/hosts-editor /usr/local/bin/enable-docs /usr/local/bin/secret-run /usr/local/bin/vpn /usr/local/lib/devops-tools/client/*.sh
 
 # Executa todos os scripts de instalação
 RUN /usr/local/bin/run_all.sh

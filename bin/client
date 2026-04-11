@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CLIENTS_ROOT="${DEVOPS_CLIENTS_ROOT:-/tools/clients}"
+STATE_DIR="${DEVOPS_CLIENT_STATE_DIR:-/tools/.devops-client}"
+CURRENT_FILE="${STATE_DIR}/current"
+
+usage() {
+  cat <<'EOF'
+Uso: client <comando> [cliente]
+
+Comandos:
+  list
+      Lista os clientes disponíveis em /tools/clients.
+  init <cliente>
+      Cria a estrutura base de contexto para um novo cliente.
+  current
+      Mostra o cliente ativo na sessão atual ou no estado persistido.
+  activate <cliente>
+      Emite exports para ativar o cliente na shell atual.
+  deactivate
+      Emite unsets para limpar o cliente ativo da shell atual.
+  show [cliente]
+      Mostra os caminhos usados pelo contexto do cliente.
+  help
+      Exibe esta ajuda.
+
+Exemplos:
+  client init acme
+  client list
+  eval "$(client activate acme)"
+  client current
+  client show acme
+EOF
+}
+
+quote() {
+  printf "%q" "$1"
+}
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+ensure_state_dir() {
+  mkdir -p "$STATE_DIR"
+}
+
+sanitize_name() {
+  local name="$1"
+  [[ "$name" =~ ^[a-zA-Z0-9._-]+$ ]] || fail "Nome de cliente inválido: '$name'. Use letras, números, ponto, underscore ou hífen."
+}
+
+client_dir() {
+  local name="$1"
+  printf '%s/%s\n' "$CLIENTS_ROOT" "$name"
+}
+
+assert_client_exists() {
+  local name="$1"
+  local dir
+  dir="$(client_dir "$name")"
+  [ -d "$dir" ] || fail "Cliente não encontrado: $name"
+}
+
+current_client_name() {
+  if [ -n "${DEVOPS_CLIENT_NAME:-}" ]; then
+    printf '%s\n' "$DEVOPS_CLIENT_NAME"
+    return
+  fi
+
+  if [ -f "$CURRENT_FILE" ]; then
+    head -n 1 "$CURRENT_FILE"
+  fi
+}
+
+write_current_client() {
+  local name="$1"
+  ensure_state_dir
+  printf '%s\n' "$name" > "$CURRENT_FILE"
+}
+
+clear_current_client() {
+  ensure_state_dir
+  rm -f "$CURRENT_FILE"
+}
+
+emit_activate_exports() {
+  local name="$1"
+  local dir ssh_config ssh_known_hosts kubeconfig docker_config wg_dir ovpn_dir env_file aliases_file bin_dir git_ssh_command
+
+  dir="$(client_dir "$name")"
+  ssh_config="${dir}/.ssh/config"
+  ssh_known_hosts="${dir}/.ssh/known_hosts"
+  kubeconfig="${dir}/.kube/config"
+  docker_config="${dir}/.docker"
+  wg_dir="${dir}/wireguard"
+  ovpn_dir="${dir}/openvpn"
+  env_file="${dir}/env.sh"
+  aliases_file="${dir}/aliases.sh"
+  bin_dir="${dir}/bin"
+  git_ssh_command="ssh -F ${ssh_config}"
+
+  printf 'export DEVOPS_CLIENT_NAME=%s\n' "$(quote "$name")"
+  printf 'export DEVOPS_CLIENT_DIR=%s\n' "$(quote "$dir")"
+  printf 'export DEVOPS_CLIENT_SSH_CONFIG=%s\n' "$(quote "$ssh_config")"
+  printf 'export DEVOPS_CLIENT_SSH_KNOWN_HOSTS=%s\n' "$(quote "$ssh_known_hosts")"
+  printf 'export DEVOPS_CLIENT_WG_DIR=%s\n' "$(quote "$wg_dir")"
+  printf 'export DEVOPS_CLIENT_OVPN_DIR=%s\n' "$(quote "$ovpn_dir")"
+  printf 'export DEVOPS_CLIENT_ENV_FILE=%s\n' "$(quote "$env_file")"
+  printf 'export DEVOPS_CLIENT_ALIASES_FILE=%s\n' "$(quote "$aliases_file")"
+  printf 'export DEVOPS_CLIENT_BIN=%s\n' "$(quote "$bin_dir")"
+  printf 'export KUBECONFIG=%s\n' "$(quote "$kubeconfig")"
+  printf 'export DOCKER_CONFIG=%s\n' "$(quote "$docker_config")"
+  printf 'export WG_DIR=%s\n' "$(quote "$wg_dir")"
+  printf 'export OVPN_DIR=%s\n' "$(quote "$ovpn_dir")"
+  printf 'export GIT_SSH_COMMAND=%s\n' "$(quote "$git_ssh_command")"
+}
+
+emit_deactivate_exports() {
+  cat <<'EOF'
+unset DEVOPS_CLIENT_NAME
+unset DEVOPS_CLIENT_DIR
+unset DEVOPS_CLIENT_SSH_CONFIG
+unset DEVOPS_CLIENT_SSH_KNOWN_HOSTS
+unset DEVOPS_CLIENT_WG_DIR
+unset DEVOPS_CLIENT_OVPN_DIR
+unset DEVOPS_CLIENT_ENV_FILE
+unset DEVOPS_CLIENT_ALIASES_FILE
+unset DEVOPS_CLIENT_BIN
+unset KUBECONFIG
+unset DOCKER_CONFIG
+unset WG_DIR
+unset OVPN_DIR
+unset GIT_SSH_COMMAND
+EOF
+}
+
+list_clients() {
+  mkdir -p "$CLIENTS_ROOT"
+  local found=0
+  local dir current
+  current="$(current_client_name || true)"
+
+  for dir in "$CLIENTS_ROOT"/*; do
+    [ -d "$dir" ] || continue
+    found=1
+    if [ "$(basename "$dir")" = "$current" ]; then
+      printf '* %s\n' "$(basename "$dir")"
+    else
+      printf '  %s\n' "$(basename "$dir")"
+    fi
+  done
+
+  [ "$found" -eq 1 ] || echo "(nenhum cliente configurado)"
+}
+
+init_client() {
+  local name="$1"
+  local dir env_file aliases_file ssh_config readme_file
+
+  sanitize_name "$name"
+  dir="$(client_dir "$name")"
+  mkdir -p \
+    "$dir/.kube" \
+    "$dir/.ssh" \
+    "$dir/.docker" \
+    "$dir/wireguard" \
+    "$dir/openvpn" \
+    "$dir/bin"
+
+  env_file="$dir/env.sh"
+  aliases_file="$dir/aliases.sh"
+  ssh_config="$dir/.ssh/config"
+  readme_file="$dir/README.md"
+
+  if [ ! -f "$env_file" ]; then
+    cat > "$env_file" <<EOF
+# Variáveis carregadas automaticamente ao ativar o cliente '$name'.
+# Exemplo:
+# export AWS_PROFILE=$name
+# export KUBE_NAMESPACE=default
+EOF
+  fi
+
+  if [ ! -f "$aliases_file" ]; then
+    cat > "$aliases_file" <<'EOF'
+# Aliases e funções específicos do cliente.
+# Exemplo:
+# alias k='kubectl'
+EOF
+  fi
+
+  if [ ! -f "$ssh_config" ]; then
+    cat > "$ssh_config" <<EOF
+Host *
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    UserKnownHostsFile ${dir}/.ssh/known_hosts
+
+# Exemplo:
+# Host bastion
+#     HostName bastion.exemplo.com
+#     User ubuntu
+#     IdentityFile ${dir}/.ssh/id_ed25519
+EOF
+  fi
+
+  touch "$dir/.ssh/known_hosts"
+
+  if [ ! -f "$dir/.kube/config" ]; then
+    : > "$dir/.kube/config"
+  fi
+
+  if [ ! -f "$readme_file" ]; then
+    cat > "$readme_file" <<EOF
+# Cliente $name
+
+Estrutura base do contexto:
+
+- \`.kube/config\`: kubeconfig dedicado
+- \`.ssh/\`: chaves, config e known_hosts
+- \`.docker/\`: config do Docker/registry
+- \`wireguard/\`: perfis WireGuard
+- \`openvpn/\`: perfis OpenVPN
+- \`env.sh\`: exports carregados no \`client use\`
+- \`aliases.sh\`: aliases/funções do cliente
+- \`bin/\`: scripts auxiliares do cliente
+EOF
+  fi
+
+  echo "Cliente inicializado em: $dir"
+}
+
+show_client() {
+  local name="$1"
+  local dir
+  dir="$(client_dir "$name")"
+
+  cat <<EOF
+Cliente: $name
+Diretório: $dir
+Kubeconfig: $dir/.kube/config
+SSH config: $dir/.ssh/config
+Known hosts: $dir/.ssh/known_hosts
+Docker config: $dir/.docker
+WireGuard: $dir/wireguard
+OpenVPN: $dir/openvpn
+Env: $dir/env.sh
+Aliases: $dir/aliases.sh
+Bin: $dir/bin
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  list)
+    list_clients
+    ;;
+  init)
+    name="${1:-}"
+    [ -n "$name" ] || fail "Uso: client init <cliente>"
+    init_client "$name"
+    ;;
+  current)
+    current="$(current_client_name || true)"
+    [ -n "$current" ] || fail "Nenhum cliente ativo."
+    echo "$current"
+    ;;
+  activate)
+    name="${1:-}"
+    [ -n "$name" ] || fail "Uso: client activate <cliente>"
+    sanitize_name "$name"
+    assert_client_exists "$name"
+    write_current_client "$name"
+    emit_activate_exports "$name"
+    ;;
+  deactivate)
+    clear_current_client
+    emit_deactivate_exports
+    ;;
+  show)
+    name="${1:-$(current_client_name || true)}"
+    [ -n "$name" ] || fail "Uso: client show <cliente>"
+    sanitize_name "$name"
+    assert_client_exists "$name"
+    show_client "$name"
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    fail "Comando inválido: $cmd"
+    ;;
+esac
