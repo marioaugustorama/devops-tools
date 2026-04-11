@@ -483,6 +483,9 @@ Fluxo básico:
 # criar a estrutura base
 client init acme
 
+# criar com template explícito
+client init acme --template default
+
 # remover um cliente inativo
 client delete acme --force
 
@@ -504,6 +507,11 @@ client enter acme
 # limpar o contexto atual
 client clear
 ```
+
+Templates:
+- prioridade 1: `/tools/client-templates/<nome>`
+- prioridade 2: `/tools/client-skel` para o template `default`
+- prioridade 3: template embutido na imagem em `/usr/local/lib/devops-tools/client/templates/<nome>`
 
 Ao ativar um cliente, o shell passa a usar:
 - `KUBECONFIG=/tools/clients/<cliente>/.kube/config`

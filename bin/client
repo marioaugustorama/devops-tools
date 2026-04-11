@@ -4,6 +4,10 @@ set -euo pipefail
 CLIENTS_ROOT="${DEVOPS_CLIENTS_ROOT:-/tools/clients}"
 STATE_DIR="${DEVOPS_CLIENT_STATE_DIR:-/tools/.devops-client}"
 CURRENT_FILE="${STATE_DIR}/current"
+SYSTEM_CLIENT_ROOT="${DEVOPS_CLIENT_SYSTEM_ROOT:-/usr/local/lib/devops-tools/client}"
+DEFAULT_TEMPLATE_NAME="${DEVOPS_CLIENT_TEMPLATE_DEFAULT:-default}"
+CUSTOM_TEMPLATE_ROOT="${DEVOPS_CLIENT_TEMPLATE_ROOT:-/tools/client-templates}"
+LEGACY_SKEL_ROOT="${DEVOPS_CLIENT_SKEL_ROOT:-/tools/client-skel}"
 
 usage() {
   cat <<'EOF'
@@ -12,7 +16,7 @@ Uso: client <comando> [cliente]
 Comandos:
   list
       Lista os clientes disponíveis em /tools/clients.
-  init <cliente>
+  init <cliente> [--template <nome>]
       Cria a estrutura base de contexto para um novo cliente.
   delete <cliente> [--force]
       Remove um cliente existente. Recusa apagar o cliente ativo sem antes sair dele.
@@ -33,6 +37,7 @@ Comandos:
 
 Exemplos:
   client init acme
+  client init acme --template default
   client delete acme --force
   client rename acme acme-prod
   client clone acme acme-hmg
@@ -167,10 +172,17 @@ list_clients() {
 
 init_client() {
   local name="$1"
-  local dir env_file aliases_file ssh_config readme_file
+  local template_name="${2:-$DEFAULT_TEMPLATE_NAME}"
+  local dir env_file aliases_file ssh_config readme_file template_dir
 
   sanitize_name "$name"
   dir="$(client_dir "$name")"
+  template_dir="$(resolve_template_dir "$template_name")"
+
+  mkdir -p "$dir"
+  cp -a "$template_dir"/. "$dir"/
+  replace_placeholders "$dir" "$name"
+
   mkdir -p \
     "$dir/.kube" \
     "$dir/.ssh" \
@@ -240,6 +252,33 @@ EOF
   fi
 
   echo "Cliente inicializado em: $dir"
+}
+
+resolve_template_dir() {
+  local template_name="$1"
+  local candidate=""
+
+  if [ -d "${CUSTOM_TEMPLATE_ROOT}/${template_name}" ]; then
+    candidate="${CUSTOM_TEMPLATE_ROOT}/${template_name}"
+  elif [ "$template_name" = "default" ] && [ -d "${LEGACY_SKEL_ROOT}" ]; then
+    candidate="${LEGACY_SKEL_ROOT}"
+  elif [ -d "${SYSTEM_CLIENT_ROOT}/templates/${template_name}" ]; then
+    candidate="${SYSTEM_CLIENT_ROOT}/templates/${template_name}"
+  fi
+
+  [ -n "$candidate" ] || fail "Template não encontrado: $template_name"
+  printf '%s\n' "$candidate"
+}
+
+replace_placeholders() {
+  local dir="$1"
+  local name="$2"
+  local file
+
+  while IFS= read -r -d '' file; do
+    sed -i "s|__CLIENT_NAME__|$name|g" "$file"
+    sed -i "s|__CLIENT_DIR__|$dir|g" "$file"
+  done < <(find "$dir" -type f -print0)
 }
 
 show_client() {
@@ -338,7 +377,14 @@ case "$cmd" in
   init)
     name="${1:-}"
     [ -n "$name" ] || fail "Uso: client init <cliente>"
-    init_client "$name"
+    shift || true
+    template_name="$DEFAULT_TEMPLATE_NAME"
+    if [ "${1:-}" = "--template" ]; then
+      shift || true
+      template_name="${1:-}"
+      [ -n "$template_name" ] || fail "Uso: client init <cliente> [--template <nome>]"
+    fi
+    init_client "$name" "$template_name"
     ;;
   delete)
     name="${1:-}"
