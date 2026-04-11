@@ -120,7 +120,7 @@ Use o modo conforme o seu cenário:
 
 #### 1) Daemon com Docker Compose (`up -d`)
 
-Se preferir, gere o `.env` automaticamente antes de subir:
+Gere o `.env` automaticamente antes de subir. Isso sincroniza `DEVOPS_TAG` e `APP_VERSION` com o arquivo `version`:
 
 ```bash
 bin/init-compose-env
@@ -129,11 +129,17 @@ bin/init-compose-env
 Suba o container em background:
 
 ```bash
-export LOCAL_USER_ID="$(id -u)"
-export LOCAL_GROUP_ID="$(id -g)"
-export DOCKER_GID="$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)"
-export DEVOPS_TAG="$(cat version 2>/dev/null || echo latest)"
+bin/init-compose-env
 docker compose up -d
+```
+
+Se preferir, use os atalhos do `Makefile`, que já regeneram o `.env` a partir de `version` antes de chamar o Compose:
+
+```bash
+make compose-env
+make compose-up
+make compose-up-vpn
+make compose-shell
 ```
 
 Acessar shell no container já iniciado:

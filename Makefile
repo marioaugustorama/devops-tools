@@ -20,7 +20,7 @@ TRIVY_OPTS ?= --ignore-unfixed
 # Export variables to recipes
 export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
 
-.PHONY: help build security-scan security-gate push tag-latest run compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
+.PHONY: help build security-scan security-gate push tag-latest run compose-env compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
 
 help:
 	@echo "Targets:"
@@ -34,6 +34,7 @@ help:
 	@echo "  compose-up-vpn Start daemon mode with VPN capabilities (NET_ADMIN + /dev/net/tun)"
 	@echo "  compose-shell  Open shell in compose daemon container"
 	@echo "  compose-down   Stop/remove compose daemon container"
+	@echo "  compose-env    Refresh .env for docker compose using the current version file"
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
@@ -69,16 +70,23 @@ run:
 	DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) ./run.sh
 
 compose-up:
+	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d
 
 compose-up-vpn:
+	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d
 
 compose-shell:
+	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose exec devops-tools bash
 
 compose-down:
+	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose down
+
+compose-env:
+	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
 
 # Convenience target for Brazil mirror
 .PHONY: build-br
