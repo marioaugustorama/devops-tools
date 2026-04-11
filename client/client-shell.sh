@@ -118,6 +118,9 @@ client() {
     delete)
       devops_client_command delete "$@"
       ;;
+    rename|clone)
+      devops_client_command "$subcommand" "$@"
+      ;;
     enter)
       local name="${1:-}"
       [ -n "$name" ] || {

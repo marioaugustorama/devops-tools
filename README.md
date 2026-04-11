@@ -486,6 +486,12 @@ client init acme
 # remover um cliente inativo
 client delete acme --force
 
+# duplicar um cliente
+client clone acme acme-hmg
+
+# renomear um cliente inativo
+client rename acme-hmg acme-dev
+
 # ativar o cliente na shell atual
 client use acme
 
@@ -514,4 +520,6 @@ Notas:
 - O diretório corrente da shell muda para o diretório do cliente.
 - `client clear` sai do contexto e volta para o diretório base da sessão.
 - `client delete <cliente> --force` remove um cliente inativo.
+- `client clone <origem> <destino>` duplica um contexto existente.
+- `client rename <origem> <destino>` renomeia um contexto inativo.
 - Esta primeira versão isola contexto e sessão; não cria namespace de rede por cliente.

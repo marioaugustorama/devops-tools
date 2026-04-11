@@ -16,6 +16,10 @@ Comandos:
       Cria a estrutura base de contexto para um novo cliente.
   delete <cliente> [--force]
       Remove um cliente existente. Recusa apagar o cliente ativo sem antes sair dele.
+  rename <origem> <destino>
+      Renomeia um cliente existente. Recusa renomear o cliente ativo.
+  clone <origem> <destino>
+      Duplica um cliente existente em um novo nome.
   current
       Mostra o cliente ativo na sessão atual ou no estado persistido.
   activate <cliente>
@@ -30,6 +34,8 @@ Comandos:
 Exemplos:
   client init acme
   client delete acme --force
+  client rename acme acme-prod
+  client clone acme acme-hmg
   client list
   eval "$(client activate acme)"
   client current
@@ -278,6 +284,50 @@ delete_client() {
   echo "Cliente removido: $name"
 }
 
+assert_client_not_exists() {
+  local name="$1"
+  local dir
+  dir="$(client_dir "$name")"
+  [ ! -e "$dir" ] || fail "O cliente '$name' já existe."
+}
+
+rename_client() {
+  local source_name="$1"
+  local target_name="$2"
+  local source_dir target_dir current
+
+  sanitize_name "$source_name"
+  sanitize_name "$target_name"
+  assert_client_exists "$source_name"
+  assert_client_not_exists "$target_name"
+
+  current="$(current_client_name || true)"
+  if [ "$current" = "$source_name" ]; then
+    fail "O cliente '$source_name' está ativo. Use 'client clear' antes de renomear."
+  fi
+
+  source_dir="$(client_dir "$source_name")"
+  target_dir="$(client_dir "$target_name")"
+  mv "$source_dir" "$target_dir"
+  echo "Cliente renomeado: $source_name -> $target_name"
+}
+
+clone_client() {
+  local source_name="$1"
+  local target_name="$2"
+  local source_dir target_dir
+
+  sanitize_name "$source_name"
+  sanitize_name "$target_name"
+  assert_client_exists "$source_name"
+  assert_client_not_exists "$target_name"
+
+  source_dir="$(client_dir "$source_name")"
+  target_dir="$(client_dir "$target_name")"
+  cp -a "$source_dir" "$target_dir"
+  echo "Cliente clonado: $source_name -> $target_name"
+}
+
 cmd="${1:-help}"
 shift || true
 
@@ -299,6 +349,20 @@ case "$cmd" in
       force=1
     fi
     delete_client "$name" "$force"
+    ;;
+  rename)
+    source_name="${1:-}"
+    target_name="${2:-}"
+    [ -n "$source_name" ] || fail "Uso: client rename <origem> <destino>"
+    [ -n "$target_name" ] || fail "Uso: client rename <origem> <destino>"
+    rename_client "$source_name" "$target_name"
+    ;;
+  clone)
+    source_name="${1:-}"
+    target_name="${2:-}"
+    [ -n "$source_name" ] || fail "Uso: client clone <origem> <destino>"
+    [ -n "$target_name" ] || fail "Uso: client clone <origem> <destino>"
+    clone_client "$source_name" "$target_name"
     ;;
   current)
     current="$(current_client_name || true)"
