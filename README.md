@@ -502,9 +502,11 @@ Ao ativar um cliente, o shell passa a usar:
 - `WG_DIR=/tools/clients/<cliente>/wireguard`
 - `OVPN_DIR=/tools/clients/<cliente>/openvpn`
 - `ssh`/`scp` com `-F /tools/clients/<cliente>/.ssh/config`
+- `PWD=/tools/clients/<cliente>`
 
 Notas:
 - `env.sh` é carregado automaticamente no `client use`.
 - `aliases.sh` é carregado automaticamente no `client use`.
 - O prompt passa a mostrar `[client:<nome>]`.
+- O diretório corrente da shell muda para o diretório do cliente.
 - Esta primeira versão isola contexto e sessão; não cria namespace de rede por cliente.

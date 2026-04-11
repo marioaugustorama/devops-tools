@@ -63,12 +63,19 @@ devops_client_apply_support_files() {
   fi
 }
 
+devops_client_cd_into_context() {
+  if [ -n "${DEVOPS_CLIENT_DIR:-}" ] && [ -d "${DEVOPS_CLIENT_DIR}" ]; then
+    cd "${DEVOPS_CLIENT_DIR}" || return 1
+  fi
+}
+
 devops_client_bootstrap_current() {
   local current
   current="$(devops_client_command current 2>/dev/null || true)"
   if [ -n "$current" ]; then
     eval "$(devops_client_command activate "$current")"
     devops_client_apply_support_files
+    devops_client_cd_into_context
   fi
 }
 
@@ -85,6 +92,7 @@ client() {
       }
       eval "$(devops_client_command activate "$name")"
       devops_client_apply_support_files
+      devops_client_cd_into_context
       devops_client_refresh_prompt
       ;;
     clear|deactivate)
@@ -99,6 +107,7 @@ client() {
       }
       eval "$(devops_client_command activate "$name")"
       devops_client_apply_support_files
+      devops_client_cd_into_context
       devops_client_refresh_prompt
       bash -l
       ;;
