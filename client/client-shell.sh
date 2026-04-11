@@ -115,6 +115,9 @@ client() {
       devops_client_return_to_base_dir
       devops_client_refresh_prompt
       ;;
+    delete)
+      devops_client_command delete "$@"
+      ;;
     enter)
       local name="${1:-}"
       [ -n "$name" ] || {

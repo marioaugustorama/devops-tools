@@ -14,6 +14,8 @@ Comandos:
       Lista os clientes disponíveis em /tools/clients.
   init <cliente>
       Cria a estrutura base de contexto para um novo cliente.
+  delete <cliente> [--force]
+      Remove um cliente existente. Recusa apagar o cliente ativo sem antes sair dele.
   current
       Mostra o cliente ativo na sessão atual ou no estado persistido.
   activate <cliente>
@@ -27,6 +29,7 @@ Comandos:
 
 Exemplos:
   client init acme
+  client delete acme --force
   client list
   eval "$(client activate acme)"
   client current
@@ -253,6 +256,28 @@ Bin: $dir/bin
 EOF
 }
 
+delete_client() {
+  local name="$1"
+  local force="${2:-0}"
+  local dir current
+
+  sanitize_name "$name"
+  assert_client_exists "$name"
+  dir="$(client_dir "$name")"
+  current="$(current_client_name || true)"
+
+  if [ "$current" = "$name" ]; then
+    fail "O cliente '$name' está ativo. Use 'client clear' antes de remover."
+  fi
+
+  if [ "$force" != "1" ]; then
+    fail "Confirmação necessária. Use: client delete $name --force"
+  fi
+
+  rm -rf "$dir"
+  echo "Cliente removido: $name"
+}
+
 cmd="${1:-help}"
 shift || true
 
@@ -264,6 +289,16 @@ case "$cmd" in
     name="${1:-}"
     [ -n "$name" ] || fail "Uso: client init <cliente>"
     init_client "$name"
+    ;;
+  delete)
+    name="${1:-}"
+    [ -n "$name" ] || fail "Uso: client delete <cliente> [--force]"
+    shift || true
+    force=0
+    if [ "${1:-}" = "--force" ]; then
+      force=1
+    fi
+    delete_client "$name" "$force"
     ;;
   current)
     current="$(current_client_name || true)"
