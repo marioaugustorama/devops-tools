@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import datetime
+import html
 import json
 import os
 import posixpath
+import re
 import subprocess
 import threading
 from http import HTTPStatus
@@ -21,6 +23,7 @@ STATE_FILE = os.environ.get("STATE_FILE", "/var/lib/devops-pkg/installed.list")
 RUN_LOCK = threading.Lock()
 ARCHIVE_LIST_MAX_LINES = int(os.environ.get("BACKUP_ARCHIVE_LIST_MAX_LINES", "5000"))
 ARCHIVE_LIST_TIMEOUT = int(os.environ.get("BACKUP_ARCHIVE_LIST_TIMEOUT", "20"))
+DOCS_FILE = os.environ.get("TOOLS_WEB_DOCS_FILE", "/usr/local/lib/devops-tools/README.md")
 
 
 def _json(handler, status, payload):
@@ -179,6 +182,107 @@ def _list_packages():
     return {"items": items, "index": PKG_INDEX, "state_file": STATE_FILE}
 
 
+def _docs_source():
+    candidates = [
+        DOCS_FILE,
+        "/tools/README.md",
+        os.path.join(os.getcwd(), "README.md"),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return path, f.read()
+            except OSError:
+                continue
+    return "", "# Documentação indisponível\n\nNão foi possível localizar o arquivo README.md."
+
+
+def _render_inline_markdown(text):
+    escaped = html.escape(text, quote=False)
+    escaped = re.sub(r"`([^`]+)`", lambda m: f"<code>{m.group(1)}</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", lambda m: f"<strong>{m.group(1)}</strong>", escaped)
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", lambda m: f'<a href="{html.escape(m.group(2), quote=True)}" target="_blank" rel="noreferrer">{m.group(1)}</a>', escaped)
+    return escaped
+
+
+def _render_markdown(markdown_text):
+    lines = markdown_text.splitlines()
+    parts = []
+    paragraph = []
+    in_code = False
+    list_mode = None
+
+    def flush_paragraph():
+        nonlocal paragraph
+        if paragraph:
+            text = " ".join(item.strip() for item in paragraph if item.strip())
+            if text:
+                parts.append(f"<p>{_render_inline_markdown(text)}</p>")
+            paragraph = []
+
+    def close_list():
+        nonlocal list_mode
+        if list_mode:
+            parts.append(f"</{list_mode}>")
+            list_mode = None
+
+    for raw in lines:
+        line = raw.rstrip("\n")
+        stripped = line.strip()
+
+        if stripped.startswith("```"):
+            flush_paragraph()
+            close_list()
+            if in_code:
+                parts.append("</code></pre>")
+                in_code = False
+            else:
+                parts.append("<pre><code>")
+                in_code = True
+            continue
+
+        if in_code:
+            parts.append(html.escape(line) + "\n")
+            continue
+
+        if not stripped:
+            flush_paragraph()
+            close_list()
+            continue
+
+        if stripped.startswith("#"):
+            flush_paragraph()
+            close_list()
+            level = min(len(stripped) - len(stripped.lstrip("#")), 6)
+            content = stripped[level:].strip()
+            parts.append(f"<h{level}>{_render_inline_markdown(content)}</h{level}>")
+            continue
+
+        unordered = re.match(r"^[-*]\s+(.*)$", stripped)
+        ordered = re.match(r"^\d+\.\s+(.*)$", stripped)
+        if unordered or ordered:
+            flush_paragraph()
+            new_mode = "ul" if unordered else "ol"
+            content = unordered.group(1) if unordered else ordered.group(1)
+            if list_mode != new_mode:
+                close_list()
+                parts.append(f"<{new_mode}>")
+                list_mode = new_mode
+            parts.append(f"<li>{_render_inline_markdown(content)}</li>")
+            continue
+
+        close_list()
+        paragraph.append(line)
+
+    flush_paragraph()
+    close_list()
+    if in_code:
+        parts.append("</code></pre>")
+
+    return "\n".join(parts)
+
+
 class BackupHandler(BaseHTTPRequestHandler):
     server_version = "tools-web/1.0"
 
@@ -191,6 +295,9 @@ class BackupHandler(BaseHTTPRequestHandler):
 
         if path == "/":
             return self._handle_index()
+
+        if path == "/docs":
+            return self._handle_docs()
 
         if path == "/api/health":
             return _json(self, HTTPStatus.OK, {"status": "ok"})
@@ -258,6 +365,7 @@ class BackupHandler(BaseHTTPRequestHandler):
 <body>
   <h1>DevOps Tools Service</h1>
   <p>Diretório de backup: <code>/backup</code></p>
+  <p><a href="/docs">Abrir documentação HTML</a></p>
   <p>
     <input id="token" placeholder="Token (se habilitado)">
     <button onclick="runBackup()">Executar backup</button>
@@ -415,6 +523,61 @@ class BackupHandler(BaseHTTPRequestHandler):
 </body>
 </html>"""
         body = html.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_docs(self):
+        docs_path, markdown = _docs_source()
+        content = _render_markdown(markdown)
+        html_doc = f"""<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevOps Tools Docs</title>
+  <style>
+    :root {{
+      --bg: #f7f5ef;
+      --panel: #fffdf8;
+      --text: #1f2933;
+      --muted: #52606d;
+      --border: #d9d3c7;
+      --accent: #1d4ed8;
+      --code-bg: #f0ebe1;
+    }}
+    body {{ margin: 0; background: linear-gradient(180deg, #f3efe4, #fbfaf6); color: var(--text); font: 16px/1.6 Georgia, serif; }}
+    header {{ padding: 24px 32px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.75); backdrop-filter: blur(8px); position: sticky; top: 0; }}
+    main {{ max-width: 960px; margin: 0 auto; padding: 32px; }}
+    article {{ background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 32px; box-shadow: 0 18px 50px rgba(31,41,51,0.08); }}
+    h1,h2,h3,h4,h5,h6 {{ font-family: "Segoe UI", sans-serif; line-height: 1.2; }}
+    h1 {{ font-size: 2.3rem; margin-top: 0; }}
+    h2 {{ margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }}
+    p, li {{ max-width: 72ch; }}
+    a {{ color: var(--accent); text-decoration: none; }}
+    a:hover {{ text-decoration: underline; }}
+    code {{ background: var(--code-bg); padding: 0.1rem 0.35rem; border-radius: 6px; font-family: "SFMono-Regular", Consolas, monospace; }}
+    pre {{ background: #111827; color: #f9fafb; padding: 16px; border-radius: 12px; overflow-x: auto; }}
+    pre code {{ background: transparent; padding: 0; color: inherit; }}
+    ul, ol {{ padding-left: 1.5rem; }}
+    .meta {{ color: var(--muted); font: 14px/1.4 "Segoe UI", sans-serif; }}
+  </style>
+</head>
+<body>
+  <header>
+    <strong>DevOps Tools Docs</strong>
+    <div class="meta">Fonte: <code>{html.escape(docs_path or 'README.md')}</code> · <a href="/">Voltar para tools-web</a></div>
+  </header>
+  <main>
+    <article>
+      {content}
+    </article>
+  </main>
+</body>
+</html>"""
+        body = html_doc.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

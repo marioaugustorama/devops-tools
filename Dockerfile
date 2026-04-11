@@ -135,6 +135,7 @@ RUN /usr/local/bin/run_all.sh
 
 COPY entrypoint.sh /tmp/entrypoint.sh
 
+COPY README.md /usr/local/lib/devops-tools/README.md
 COPY src/backup.py /tmp/backup.py
 COPY src/backup_service.py /tmp/backup_service.py
 COPY src /usr/local/lib/devops-tools/src
