@@ -50,6 +50,10 @@ class BackupsView(Vertical):
         elif button_id == "backups-delete":
             self.run_worker(self._delete_backup(), exclusive=True)
 
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table.id == "backups-table":
+            self.run_worker(self._show_details(), exclusive=True)
+
     def refresh_backups(self) -> None:
         self._items = self._backup_client.list_backups()
         table = self.query_one("#backups-table", DataTable)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from urllib.parse import quote
 from urllib import error, request
@@ -64,12 +65,18 @@ class BackupClient:
         try:
             payload = self._get_json(f"/api/backups/{quote(name)}/contents")
             entries = payload.get("entries", [])
-            return "\n".join(entries)
+            notes: list[str] = []
+            if payload.get("truncated"):
+                notes.append("amostra truncada")
+            if payload.get("timed_out"):
+                notes.append("tempo limite atingido")
+            meta = f" ({', '.join(notes)})" if notes else ""
+            return f"# {payload.get('name', name)}{meta}\n\n" + "\n".join(entries)
         except Exception:
             archive = self._backup_dir / name
             if not archive.exists():
                 return "Backup não encontrado."
-            return "Visualização de conteúdo indisponível sem API tools-web."
+            return self._backup_contents_fs(archive)
 
     def delete_backup(self, name: str) -> bool:
         try:
@@ -100,6 +107,21 @@ class BackupClient:
             )
         result.sort(key=lambda x: x.mtime, reverse=True)
         return result
+
+    def _backup_contents_fs(self, archive: Path) -> str:
+        proc = subprocess.run(
+            ["tar", "-tf", str(archive)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            stderr = proc.stderr.strip()
+            return stderr or "Não foi possível listar o conteúdo do backup."
+
+        entries = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+        return f"# {archive.name}\n\n" + "\n".join(entries)
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
