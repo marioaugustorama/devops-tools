@@ -24,6 +24,10 @@ Comandos:
       Renomeia um cliente existente. Recusa renomear o cliente ativo.
   clone <origem> <destino>
       Duplica um cliente existente em um novo nome.
+  template list
+      Lista os templates disponíveis e a origem efetiva de cada um.
+  template show <nome>
+      Mostra o diretório resolvido e as origens candidatas para um template.
   current
       Mostra o cliente ativo na sessão atual ou no estado persistido.
   activate <cliente>
@@ -41,6 +45,8 @@ Exemplos:
   client delete acme --force
   client rename acme acme-prod
   client clone acme acme-hmg
+  client template list
+  client template show default
   client list
   eval "$(client activate acme)"
   client current
@@ -281,6 +287,75 @@ replace_placeholders() {
   done < <(find "$dir" -type f -print0)
 }
 
+template_sources() {
+  local template_name="$1"
+
+  if [ -d "${CUSTOM_TEMPLATE_ROOT}/${template_name}" ]; then
+    printf 'custom\t%s\n' "${CUSTOM_TEMPLATE_ROOT}/${template_name}"
+  fi
+
+  if [ "$template_name" = "default" ] && [ -d "${LEGACY_SKEL_ROOT}" ]; then
+    printf 'legacy\t%s\n' "${LEGACY_SKEL_ROOT}"
+  fi
+
+  if [ -d "${SYSTEM_CLIENT_ROOT}/templates/${template_name}" ]; then
+    printf 'builtin\t%s\n' "${SYSTEM_CLIENT_ROOT}/templates/${template_name}"
+  fi
+}
+
+list_template_names() {
+  {
+    if [ -d "${CUSTOM_TEMPLATE_ROOT}" ]; then
+      find "${CUSTOM_TEMPLATE_ROOT}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+    fi
+
+    if [ -d "${SYSTEM_CLIENT_ROOT}/templates" ]; then
+      find "${SYSTEM_CLIENT_ROOT}/templates" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+    fi
+
+    if [ -d "${LEGACY_SKEL_ROOT}" ]; then
+      printf 'default\n'
+    fi
+  } | awk 'NF' | sort -u
+}
+
+template_list() {
+  local name resolved_dir resolved_origin
+  local found=0
+
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    found=1
+    resolved_dir="$(resolve_template_dir "$name")"
+    resolved_origin="$(template_sources "$name" | awk -F '\t' -v dir="$resolved_dir" '$2 == dir {print $1; exit}')"
+    printf '%s\t%s\t%s\n' "$name" "$resolved_origin" "$resolved_dir"
+  done < <(list_template_names)
+
+  [ "$found" -eq 1 ] || echo "(nenhum template disponível)"
+}
+
+template_show() {
+  local template_name="$1"
+  local resolved_dir
+  local any=0
+
+  resolved_dir="$(resolve_template_dir "$template_name")"
+  echo "Template: $template_name"
+  echo "Resolvido para: $resolved_dir"
+  echo "Origens:"
+
+  while IFS=$'\t' read -r origin dir; do
+    any=1
+    if [ "$dir" = "$resolved_dir" ]; then
+      printf '* %s\t%s\n' "$origin" "$dir"
+    else
+      printf '  %s\t%s\n' "$origin" "$dir"
+    fi
+  done < <(template_sources "$template_name")
+
+  [ "$any" -eq 1 ] || fail "Template não encontrado: $template_name"
+}
+
 show_client() {
   local name="$1"
   local dir
@@ -409,6 +484,22 @@ case "$cmd" in
     [ -n "$source_name" ] || fail "Uso: client clone <origem> <destino>"
     [ -n "$target_name" ] || fail "Uso: client clone <origem> <destino>"
     clone_client "$source_name" "$target_name"
+    ;;
+  template)
+    subcmd="${1:-}"
+    case "$subcmd" in
+      list)
+        template_list
+        ;;
+      show)
+        template_name="${2:-}"
+        [ -n "$template_name" ] || fail "Uso: client template show <nome>"
+        template_show "$template_name"
+        ;;
+      *)
+        fail "Uso: client template <list|show>"
+        ;;
+    esac
     ;;
   current)
     current="$(current_client_name || true)"

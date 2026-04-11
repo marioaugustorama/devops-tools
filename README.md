@@ -495,6 +495,12 @@ client clone acme acme-hmg
 # renomear um cliente inativo
 client rename acme-hmg acme-dev
 
+# listar templates disponíveis
+client template list
+
+# mostrar de onde vem um template
+client template show default
+
 # ativar o cliente na shell atual
 client use acme
 
@@ -512,6 +518,10 @@ Templates:
 - prioridade 1: `/tools/client-templates/<nome>`
 - prioridade 2: `/tools/client-skel` para o template `default`
 - prioridade 3: template embutido na imagem em `/usr/local/lib/devops-tools/client/templates/<nome>`
+
+O catálogo de templates pode ser consultado com:
+- `client template list`
+- `client template show <nome>`
 
 Ao ativar um cliente, o shell passa a usar:
 - `KUBECONFIG=/tools/clients/<cliente>/.kube/config`
