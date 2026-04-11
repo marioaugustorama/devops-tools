@@ -1,5 +1,6 @@
 # Excluir VCS e metadados
 .git
+**/.git
 .gitignore
 .github
 .vscode
@@ -43,7 +44,9 @@ known_hosts
 
 # Caches/virtual envs/dep dirs
 __pycache__/
+**/__pycache__/
 *.pyc
+**/*.pyc
 .cache/
 .venv/
 venv/
