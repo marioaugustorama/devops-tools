@@ -509,4 +509,5 @@ Notas:
 - `aliases.sh` é carregado automaticamente no `client use`.
 - O prompt passa a mostrar `[client:<nome>]`.
 - O diretório corrente da shell muda para o diretório do cliente.
+- `client clear` sai do contexto e volta para o diretório base da sessão.
 - Esta primeira versão isola contexto e sessão; não cria namespace de rede por cliente.

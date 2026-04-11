@@ -7,6 +7,10 @@ if [ -n "${DEVOPS_CLIENT_SHELL_LOADED:-}" ]; then
 fi
 export DEVOPS_CLIENT_SHELL_LOADED=1
 
+if [ -z "${DEVOPS_CLIENT_BASE_DIR:-}" ]; then
+  export DEVOPS_CLIENT_BASE_DIR="$PWD"
+fi
+
 devops_client_command() {
   local client_bin=""
 
@@ -69,6 +73,17 @@ devops_client_cd_into_context() {
   fi
 }
 
+devops_client_return_to_base_dir() {
+  if [ -n "${DEVOPS_CLIENT_BASE_DIR:-}" ] && [ -d "${DEVOPS_CLIENT_BASE_DIR}" ]; then
+    cd "${DEVOPS_CLIENT_BASE_DIR}" || return 1
+    return 0
+  fi
+
+  if [ -d /tools ]; then
+    cd /tools || return 1
+  fi
+}
+
 devops_client_bootstrap_current() {
   local current
   current="$(devops_client_command current 2>/dev/null || true)"
@@ -97,6 +112,7 @@ client() {
       ;;
     clear|deactivate)
       eval "$(devops_client_command deactivate)"
+      devops_client_return_to_base_dir
       devops_client_refresh_prompt
       ;;
     enter)
