@@ -204,6 +204,40 @@ Mantém o fluxo existente:
 ./run.sh
 ```
 
+Na inicialização, o `run.sh` verifica os `docker contexts` registrados no host. Se
+houver mais de um, mostra um menu para escolher onde o container será iniciado. Se
+só existir o `default`, segue direto sem perguntar. Quando o contexto escolhido já
+tiver um container `devops-tools` ou `devops-tools-daemon` rodando, o script entra
+nele com `docker exec` em vez de iniciar outro container. Se o container existir
+mas estiver parado, ele é iniciado e a sessão entra nele. Se não houver container,
+inicia um novo no contexto escolhido; em contextos remotos, usa volumes Docker
+nomeados no daemon remoto para evitar bind mounts de caminhos locais.
+
+Para escolher sem menu:
+
+```bash
+DEVOPS_DOCKER_CONTEXT=meu-contexto ./run.sh
+```
+
+Para desativar o menu e sempre cair no `default` quando nenhum contexto for
+definido explicitamente:
+
+```bash
+DEVOPS_DOCKER_CONTEXT_PROMPT=0 ./run.sh
+```
+
+Se o container remoto usa outro nome:
+
+```bash
+DEVOPS_CONTAINER_NAME=meu-container DEVOPS_DOCKER_CONTEXT=meu-contexto ./run.sh
+```
+
+Para controlar o prefixo dos volumes criados no daemon remoto:
+
+```bash
+DEVOPS_REMOTE_VOLUME_PREFIX=devops-zello DEVOPS_DOCKER_CONTEXT=zello ./run.sh
+```
+
 Ou com comando direto:
 
 ```bash
