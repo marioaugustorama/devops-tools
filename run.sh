@@ -1,6 +1,70 @@
 #!/bin/bash
 set -euo pipefail
 
+WORKSPACE_DIR="$(pwd)"
+WORKSPACE_AUTO_SYNC="${DEVOPS_WORKSPACE_AUTO_SYNC:-1}"
+WORKSPACE_FIX_PERMS="${DEVOPS_WORKSPACE_FIX_PERMS:-1}"
+
+workspace_log() {
+    printf '%s\n' "$*" >&2
+}
+
+fix_workspace_permissions() {
+    local path
+
+    for path in run.sh run2.sh run-dev.sh run_all.sh update-motd.sh update_bashrc; do
+        if [ -f "$WORKSPACE_DIR/$path" ]; then
+            chmod +x "$WORKSPACE_DIR/$path" 2>/dev/null || true
+        fi
+    done
+
+    if [ -d "$WORKSPACE_DIR/bin" ]; then
+        find "$WORKSPACE_DIR/bin" -maxdepth 1 -type f -exec chmod +x {} + 2>/dev/null || true
+    fi
+}
+
+sync_workspace_from_git() {
+    command -v git >/dev/null 2>&1 || return 0
+    git -C "$WORKSPACE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+
+    if ! git -C "$WORKSPACE_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+        workspace_log "Aviso: sem upstream git em $WORKSPACE_DIR; ignorando atualização automática."
+        return 0
+    fi
+
+    if ! git -C "$WORKSPACE_DIR" diff --quiet --ignore-submodules -- 2>/dev/null || \
+       ! git -C "$WORKSPACE_DIR" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+        workspace_log "Aviso: checkout com mudanças locais em $WORKSPACE_DIR; ignorando git pull automático."
+        return 0
+    fi
+
+    git -C "$WORKSPACE_DIR" fetch --prune --quiet 2>/dev/null || {
+        workspace_log "Aviso: falha ao buscar atualizações git em $WORKSPACE_DIR; seguindo com a versão local."
+        return 0
+    }
+
+    local behind
+    behind="$(git -C "$WORKSPACE_DIR" rev-list --count HEAD..@{u} 2>/dev/null || echo 0)"
+    if [ "${behind:-0}" -le 0 ]; then
+        return 0
+    fi
+
+    workspace_log "Atualizando checkout local em $WORKSPACE_DIR com ${behind} commit(s) novo(s)..."
+    if git -C "$WORKSPACE_DIR" pull --ff-only --quiet; then
+        workspace_log "Checkout local atualizado."
+    else
+        workspace_log "Aviso: git pull --ff-only falhou; seguindo com a versão local."
+    fi
+}
+
+if [ "$WORKSPACE_AUTO_SYNC" = "1" ]; then
+    sync_workspace_from_git
+fi
+
+if [ "$WORKSPACE_FIX_PERMS" = "1" ]; then
+    fix_workspace_permissions
+fi
+
 # Permite override via env: DEVOPS_IMAGE e DEVOPS_TAG
 IMAGE_NAME=${DEVOPS_IMAGE:-marioaugustorama/devops-tools}
 
@@ -54,6 +118,8 @@ show_help() {
     echo "  Env: DEVOPS_DOCKER_CONTEXT_PROMPT=0 Desativa o menu de contextos"
     echo "  Env: DEVOPS_CONTAINER_NAME=<nome> Nome do container para iniciar/conectar"
     echo "  Env: DEVOPS_REMOTE_VOLUME_PREFIX=<nome> Prefixo dos volumes em contexto remoto"
+    echo "  Env: DEVOPS_WORKSPACE_AUTO_SYNC=0|1 Atualiza o checkout local via git pull --ff-only"
+    echo "  Env: DEVOPS_WORKSPACE_FIX_PERMS=0|1 Corrige permissões executáveis do workspace"
     echo "  Env: DEVOPS_DNS=IP[,IP] DEVOPS_DNS_SEARCH=dominio[,dominio] DEVOPS_DNS_AUTO=0|1"
     echo
     echo "Comandos:"

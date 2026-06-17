@@ -241,6 +241,16 @@ Para controlar o prefixo dos volumes criados no daemon remoto:
 DEVOPS_REMOTE_VOLUME_PREFIX=devops-remote DEVOPS_DOCKER_CONTEXT=meu-contexto-remoto ./run.sh
 ```
 
+Na inicialização, o `run.sh` também:
+- normaliza as permissões executáveis dos scripts do workspace, principalmente `bin/*`
+- verifica se o checkout local está atrás do upstream e, se estiver limpo, faz `git pull --ff-only`
+
+Se quiser desativar esse comportamento:
+
+```bash
+DEVOPS_WORKSPACE_AUTO_SYNC=0 DEVOPS_WORKSPACE_FIX_PERMS=0 ./run.sh
+```
+
 Ou com comando direto:
 
 ```bash
