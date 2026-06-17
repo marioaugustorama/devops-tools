@@ -8,8 +8,8 @@ AWSCLI_ZIP="awscli-exe-linux-x86_64.zip"
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh || { echo "Falha ao carregar /usr/local/bin/utils.sh"; exit 1; }
 
-# Se já instalado, sai
-if command -v aws >/dev/null 2>&1; then
+# Se já instalado no volume persistente, sai
+if pkg_bin_exists aws; then
     echo "AWS CLI já instalado: $(aws --version 2>&1)"
     exit 0
 fi
@@ -34,7 +34,8 @@ fi
 
 # Instala o AWS CLI
 echo "Instalando AWS CLI..."
-./aws/install -i /usr/local/aws-cli -b /usr/local/bin || error_exit "Falha ao instalar o AWS CLI"
+AWS_BIN_DIR="$(get_pkg_bin_dir)"
+./aws/install -i "${AWS_BIN_DIR}/aws-cli" -b "$AWS_BIN_DIR" || error_exit "Falha ao instalar o AWS CLI"
 
 # Limpeza
 echo "Limpando arquivos temporários..."

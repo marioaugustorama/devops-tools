@@ -21,6 +21,7 @@ fi
 # Instala o K9s
 echo "Instalando K9s..."
 dpkg -i "$PACKAGE_NAME" || error_exit "Falha ao instalar o K9s"
+install_pkg_bin /usr/bin/k9s k9s
 
 # Limpeza
 echo "Limpando arquivos temporários..."

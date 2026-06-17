@@ -35,7 +35,7 @@ download_and_install() {
     error_exit "Binário ${name} não encontrado após extração."
   fi
   echo "Instalando ${name}..."
-  install -o root -g root -m 0755 "$name" "/usr/local/bin/${name}" || error_exit "Falha ao instalar ${name}"
+  install_pkg_bin "$name" "$name"
   rm -f "$tar" "$name"
 }
 

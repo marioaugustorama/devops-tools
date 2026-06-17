@@ -7,8 +7,6 @@ AZURE_CLI_VERSION="${AZURE_CLI_VERSION:-2.83.0}"
 AZCOPY_VERSION="${AZCOPY_VERSION:-10.32.1}"
 AZCOPY_TAR="azcopy_linux_amd64_${AZCOPY_VERSION}.tar.gz"
 AZCOPY_DOWNLOAD_URL="https://github.com/Azure/azure-storage-azcopy/releases/download/v${AZCOPY_VERSION}/${AZCOPY_TAR}"
-AZCOPY_BIN="/usr/local/bin/azcopy"
-
 # Inclui o arquivo com as funções genéricas
 source /usr/local/bin/utils.sh
 
@@ -56,7 +54,7 @@ fi
 
 # Instala o AzCopy
 echo "Instalando AzCopy..."
-install -o root -g root -m 0755 $AZCOPY_DIR/azcopy $AZCOPY_BIN || error_exit "Falha ao instalar o AzCopy"
+install_pkg_bin "$AZCOPY_DIR/azcopy" azcopy || error_exit "Falha ao instalar o AzCopy"
 
 # Limpeza
 echo "Limpando arquivos temporários..."

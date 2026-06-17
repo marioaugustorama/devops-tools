@@ -9,14 +9,45 @@ PKG_STATE="/var/lib/devops-pkg/installed.list"
 APT_STATE_FILE="/var/lib/devops-pkg/apt-packages.list"
 PKG_AUTO_LIST="${PKG_AUTO_LIST:-/var/lib/devops-pkg/auto-install.list}"
 PKG_INDEX="${PKG_INDEX:-/usr/local/scripts/packages.tsv}"
-PKG_AUTO_RESTORE="${PKG_AUTO_RESTORE:-0}"
+PKG_AUTO_RESTORE="${PKG_AUTO_RESTORE:-1}"
 PKG_LAZY_INSTALL="${PKG_LAZY_INSTALL:-1}"
+PKG_BIN_DIR="${PKG_BIN_DIR:-/var/lib/devops-pkg/bin}"
 LAZY_LOADER_FILE="/tools/.pkg_add_lazy.sh"
 TOOLS_WEB_AUTOSTART="${TOOLS_WEB_AUTOSTART:-${BACKUP_WEB_AUTOSTART:-1}}"
 TOOLS_WEB_LOG="${TOOLS_WEB_LOG:-${BACKUP_WEB_LOG:-/var/log/tools-web.log}}"
 # Compat legado (BACKUP_WEB_*)
 BACKUP_WEB_AUTOSTART="${BACKUP_WEB_AUTOSTART:-$TOOLS_WEB_AUTOSTART}"
 BACKUP_WEB_LOG="${BACKUP_WEB_LOG:-$TOOLS_WEB_LOG}"
+
+try_root() {
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+        "$@"
+        return $?
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -n "$@"
+        return $?
+    fi
+
+    return 1
+}
+
+ensure_writable_dir() {
+    local dir="$1"
+
+    if mkdir -p "$dir" 2>/dev/null; then
+        return 0
+    fi
+
+    if try_root mkdir -p "$dir"; then
+        try_root chown "$USER_ID:$GROUP_ID" "$dir" 2>/dev/null || true
+        try_root chmod 755 "$dir" 2>/dev/null || true
+        return 0
+    fi
+
+    return 1
+}
 
 # Função para garantir que o arquivo de estado exista e seja gravável,
 # com fallback para $HOME se o volume estiver somente leitura ou com owner incorreto.
@@ -25,23 +56,56 @@ ensure_state_file() {
     local fallback="$2"
     local dir
     dir=$(dirname "$target")
-    mkdir -p "$dir" 2>/dev/null || true
-    if touch "$target" 2>/dev/null; then
+    if mkdir -p "$dir" 2>/dev/null && touch "$target" 2>/dev/null; then
         chown "$USER_ID:$GROUP_ID" "$target" 2>/dev/null || true
         echo "$target"
         return
     fi
 
+    if try_root mkdir -p "$dir" && try_root touch "$target"; then
+        try_root chown "$USER_ID:$GROUP_ID" "$target" 2>/dev/null || true
+        echo "$target"
+        return
+    fi
+
     dir=$(dirname "$fallback")
-    mkdir -p "$dir" 2>/dev/null || true
-    if touch "$fallback" 2>/dev/null; then
+    if mkdir -p "$dir" 2>/dev/null && touch "$fallback" 2>/dev/null; then
         chown "$USER_ID:$GROUP_ID" "$fallback" 2>/dev/null || true
+        echo "$fallback"
+        return
+    fi
+
+    if try_root mkdir -p "$dir" && try_root touch "$fallback"; then
+        try_root chown "$USER_ID:$GROUP_ID" "$fallback" 2>/dev/null || true
         echo "$fallback"
         return
     fi
 
     echo "[entrypoint] Aviso: não foi possível criar arquivo de estado em $target nem em $fallback" >&2
     echo ""
+}
+
+collect_restore_packages() {
+    local file pkg trimmed
+    declare -A seen=()
+
+    for file in "$PKG_STATE" "$PKG_AUTO_LIST"; do
+        [ -f "$file" ] || continue
+
+        while IFS= read -r pkg; do
+            trimmed=$(echo "$pkg" | xargs)
+            [ -n "$trimmed" ] || continue
+
+            case "$trimmed" in
+                \#*) continue ;;
+            esac
+
+            if [ -z "${seen[$trimmed]+x}" ]; then
+                seen["$trimmed"]=1
+                printf '%s\n' "$trimmed"
+            fi
+        done < "$file"
+    done
 }
 
 # Cria o diretório home se não existir e define as permissões corretas
@@ -53,14 +117,28 @@ fi
 
 # Garante permissões de estado persistente
 STATE_DIR="/var/lib/devops-pkg"
-mkdir -p "$STATE_DIR"
-chown "$USER_ID:$GROUP_ID" "$STATE_DIR" 2>/dev/null || true
+if ! ensure_writable_dir "$STATE_DIR"; then
+    STATE_DIR="/tmp/.devops-pkg"
+    ensure_writable_dir "$STATE_DIR"
+fi
+
+if ! ensure_writable_dir "$PKG_BIN_DIR"; then
+    PKG_BIN_DIR="$STATE_DIR/bin"
+    ensure_writable_dir "$PKG_BIN_DIR"
+fi
+
 chmod 700 "$STATE_DIR" 2>/dev/null || true
+chmod 755 "$PKG_BIN_DIR" 2>/dev/null || true
+export PKG_BIN_DIR
+case ":$PATH:" in
+    *":$PKG_BIN_DIR:"*) ;;
+    *) export PATH="$PKG_BIN_DIR:$PATH" ;;
+esac
 
 # Garante que os arquivos de estado existem e têm permissão de escrita (com fallback)
-PKG_STATE=$(ensure_state_file "$PKG_STATE" "/tools/.devops-pkg/installed.list")
-APT_STATE_FILE=$(ensure_state_file "$APT_STATE_FILE" "/tools/.devops-pkg/apt-packages.list")
-PKG_AUTO_LIST=$(ensure_state_file "$PKG_AUTO_LIST" "/tools/.devops-pkg/auto-install.list")
+PKG_STATE=$(ensure_state_file "$PKG_STATE" "$STATE_DIR/installed.list")
+APT_STATE_FILE=$(ensure_state_file "$APT_STATE_FILE" "$STATE_DIR/apt-packages.list")
+PKG_AUTO_LIST=$(ensure_state_file "$PKG_AUTO_LIST" "$STATE_DIR/auto-install.list")
 
 # Se o fallback foi retornado vazio, pula restauração de estado
 if [ -z "$PKG_STATE" ] || [ -z "$APT_STATE_FILE" ]; then
@@ -83,8 +161,8 @@ EOF
                     chown "$USER_ID:$GROUP_ID" "$PKG_AUTO_LIST" 2>/dev/null || true
                 fi
 
-                mapfile -t PKG_LIST < <(grep -vE '^\s*(#|$)' "$PKG_AUTO_LIST" || true)
-                echo "[entrypoint] Restaurando pacotes via pkg_add (arquivo: $PKG_AUTO_LIST)..."
+                mapfile -t PKG_LIST < <(collect_restore_packages)
+                echo "[entrypoint] Restaurando pacotes via pkg_add (estado: $PKG_STATE, auto: $PKG_AUTO_LIST)..."
                 if [ "${#PKG_LIST[@]}" -gt 0 ]; then
                     pkg_add install --force "${PKG_LIST[@]}" || echo "[entrypoint] Falha ao restaurar alguns pacotes" >&2
                 else

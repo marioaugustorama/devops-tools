@@ -6,9 +6,6 @@ source /usr/local/bin/utils.sh
 REPO="ahmetb/kubectl-tree"
 KUBECTL_TREE_VERSION="${KUBECTL_TREE_VERSION:-v0.4.6}"
 API_URL="https://api.github.com/repos/${REPO}/releases/tags/${KUBECTL_TREE_VERSION}"
-DEST_PRIMARY="/usr/local/bin/kubectl-tree"
-DEST_FALLBACK="${HOME:-/tmp}/.local/bin/kubectl-tree"
-DEST="$DEST_PRIMARY"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -17,7 +14,7 @@ release_json=$(curl -fsSL "$API_URL") || error_exit "Não foi possível consulta
 latest_tag=$(echo "$release_json" | grep -oP '"tag_name":\s*"\K[^"]+')
 [ -n "$latest_tag" ] || error_exit "Não foi possível determinar a versão alvo."
 
-if command -v kubectl-tree >/dev/null 2>&1; then
+if pkg_bin_exists kubectl-tree; then
     current=$(kubectl-tree version 2>/dev/null || true)
     if [[ -n "$current" && "$current" == *"$latest_tag"* ]]; then
         echo "kubectl-tree já está na versão $latest_tag"
@@ -50,15 +47,6 @@ bin_path=$(find "$TMP_DIR" -type f -name 'kubectl-tree*' | head -n1)
 
 chmod +x "$bin_path"
 echo "Instalando kubectl-tree..."
-if install -m 0755 "$bin_path" "$DEST_PRIMARY" 2>/dev/null; then
-    DEST="$DEST_PRIMARY"
-elif command -v sudo >/dev/null 2>&1 && sudo install -m 0755 "$bin_path" "$DEST_PRIMARY" 2>/dev/null; then
-    DEST="$DEST_PRIMARY"
-else
-    mkdir -p "$(dirname "$DEST_FALLBACK")"
-    install -m 0755 "$bin_path" "$DEST_FALLBACK" || error_exit "Falha na instalação (fallback)."
-    DEST="$DEST_FALLBACK"
-    echo "Aviso: instalado em $DEST (sem permissão para /usr/local/bin)."
-fi
+install_pkg_bin "$bin_path" kubectl-tree
 
-echo "kubectl-tree ${latest_tag} instalado com sucesso em $DEST."
+echo "kubectl-tree ${latest_tag} instalado com sucesso."

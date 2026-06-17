@@ -22,6 +22,7 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 IP_BIND="0.0.0.0"
 DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
+RUN_CONTAINER_NAME="${DEVOPS_CONTAINER_NAME:-devops-tools}"
 PKG_STATE_DIR="${PKG_STATE_DIR:-$(pwd)/pkg_state}"
 VPN_CONFIG_DIR="${VPN_CONFIG_DIR:-$(pwd)/vpn-configs}"
 OVPN_CONFIG_DIR="${OVPN_CONFIG_DIR:-$(pwd)/openvpn-configs}"
@@ -31,6 +32,9 @@ ENABLE_WG_FORWARDING=${ENABLE_WG_FORWARDING:-0}
 DEVOPS_DNS=${DEVOPS_DNS:-}
 DEVOPS_DNS_SEARCH=${DEVOPS_DNS_SEARCH:-}
 DEVOPS_DNS_AUTO=${DEVOPS_DNS_AUTO:-1}
+DEVOPS_DOCKER_CONTEXT="${DEVOPS_DOCKER_CONTEXT:-${DOCKER_CONTEXT:-}}"
+DEVOPS_DOCKER_CONTEXT_PROMPT="${DEVOPS_DOCKER_CONTEXT_PROMPT:-1}"
+DEVOPS_REMOTE_VOLUME_PREFIX="${DEVOPS_REMOTE_VOLUME_PREFIX:-$RUN_CONTAINER_NAME}"
 
 # If PKG_STATE_DIR comes from the environment and is not writable (e.g. /var/lib/*),
 # fall back to a local directory so non-root users can run the container.
@@ -46,6 +50,10 @@ show_help() {
     echo
     echo "Opções:"
     echo "  --help, -h             Mostrar esta mensagem de ajuda e sair"
+    echo "  Env: DEVOPS_DOCKER_CONTEXT=<nome> Define o docker context sem prompt"
+    echo "  Env: DEVOPS_DOCKER_CONTEXT_PROMPT=0 Desativa o menu de contextos"
+    echo "  Env: DEVOPS_CONTAINER_NAME=<nome> Nome do container para iniciar/conectar"
+    echo "  Env: DEVOPS_REMOTE_VOLUME_PREFIX=<nome> Prefixo dos volumes em contexto remoto"
     echo "  Env: DEVOPS_DNS=IP[,IP] DEVOPS_DNS_SEARCH=dominio[,dominio] DEVOPS_DNS_AUTO=0|1"
     echo
     echo "Comandos:"
@@ -57,6 +65,156 @@ show_help() {
     echo "  $0 backup        Executa o script backup dentro do container Docker."
     echo "  $0 tools-web     Sobe serviço HTTP de utilidades no container (porta 30000)."
     echo "  $0 backup-web    Alias legado para tools-web."
+}
+
+docker_context_exists() {
+    local wanted="$1"
+    local context
+
+    while IFS= read -r context; do
+        [ "$context" = "$wanted" ] && return 0
+    done < <(docker context ls --format '{{.Name}}' 2>/dev/null || true)
+
+    return 1
+}
+
+docker_context_host() {
+    local context="$1"
+    docker context inspect "$context" --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true
+}
+
+docker_context_is_remote() {
+    local context="$1"
+    local host
+
+    host="$(docker_context_host "$context")"
+    case "$host" in
+        ""|unix://*|npipe://*)
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+docker_context_scope_label() {
+    local context="$1"
+
+    if docker_context_is_remote "$context"; then
+        printf 'remoto'
+    else
+        printf 'local'
+    fi
+}
+
+find_running_devops_container() {
+    local context="$1"
+    local name running
+    local -a candidates
+
+    if [ -n "${DEVOPS_CONTAINER_NAME:-}" ]; then
+        candidates=("$DEVOPS_CONTAINER_NAME")
+    else
+        candidates=("devops-tools" "devops-tools-daemon")
+    fi
+
+    for name in "${candidates[@]}"; do
+        running="$(docker --context "$context" container inspect -f '{{.State.Running}}' "$name" 2>/dev/null || true)"
+        if [ "$running" = "true" ]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+find_existing_devops_container() {
+    local context="$1"
+    local name exists
+    local -a candidates
+
+    if [ -n "${DEVOPS_CONTAINER_NAME:-}" ]; then
+        candidates=("$DEVOPS_CONTAINER_NAME")
+    else
+        candidates=("devops-tools" "devops-tools-daemon")
+    fi
+
+    for name in "${candidates[@]}"; do
+        exists="$(docker --context "$context" container inspect -f '{{.Name}}' "$name" 2>/dev/null || true)"
+        if [ -n "$exists" ]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+select_docker_context_numeric() {
+    local default_context="$1"
+    shift
+    local contexts=("$@")
+    local selected choice context index
+
+    echo "Docker contexts encontrados:" >&2
+    index=1
+    for context in "${contexts[@]}"; do
+        if [ "$context" = "$default_context" ]; then
+            printf '  %d) %s (atual, %s)\n' "$index" "$context" "$(docker_context_scope_label "$context")" >&2
+        else
+            printf '  %d) %s (%s)\n' "$index" "$context" "$(docker_context_scope_label "$context")" >&2
+        fi
+        index=$((index + 1))
+    done
+
+    while true; do
+        printf 'Selecione o docker context [%s]: ' "$default_context" >&2
+        IFS= read -r choice || {
+            printf '%s\n' "$default_context"
+            return
+        }
+
+        if [ -z "$choice" ]; then
+            selected="$default_context"
+        elif [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#contexts[@]}" ]; then
+            selected="${contexts[$((choice - 1))]}"
+        else
+            selected="$choice"
+        fi
+
+        if docker_context_exists "$selected"; then
+            printf '%s\n' "$selected"
+            return
+        fi
+
+        echo "Contexto inválido: $selected" >&2
+    done
+}
+
+select_docker_context() {
+    local contexts=()
+    local current default_context
+
+    if [ -n "$DEVOPS_DOCKER_CONTEXT" ]; then
+        printf '%s\n' "$DEVOPS_DOCKER_CONTEXT"
+        return
+    fi
+
+    mapfile -t contexts < <(docker context ls --format '{{.Name}}' 2>/dev/null | awk 'NF' || true)
+    if [ "${#contexts[@]}" -le 1 ] || [ "$DEVOPS_DOCKER_CONTEXT_PROMPT" = "0" ] || [ ! -t 0 ]; then
+        printf 'default\n'
+        return
+    fi
+
+    current="$(docker context show 2>/dev/null || true)"
+    default_context="$current"
+    if [ -z "$default_context" ] || ! docker_context_exists "$default_context"; then
+        default_context="default"
+    fi
+
+    select_docker_context_numeric "$default_context" "${contexts[@]}"
 }
 
 auto_detect_dns_from_wireguard() {
@@ -101,29 +259,81 @@ fi
 
 
 run() {
-    mkdir -p home backup logs "$PKG_STATE_DIR" "$VPN_CONFIG_DIR" "$OVPN_CONFIG_DIR" "$WG_KEYS_DIR"
+    local docker_context
+    local remote_context=0
+    local existing_container
+    local running_container
+    local -a docker_cmd
+
+    docker_context="$(select_docker_context)"
+    docker_cmd=(docker --context "$docker_context")
+    echo "Usando docker context: $docker_context"
+
+    running_container="$(find_running_devops_container "$docker_context" || true)"
+    if [ -n "$running_container" ]; then
+        echo "Container '$running_container' já está rodando; conectando..."
+        if [ "$#" -gt 0 ]; then
+            exec "${docker_cmd[@]}" exec -it "$running_container" "$@"
+        fi
+        exec "${docker_cmd[@]}" exec -it "$running_container" bash
+    fi
+
+    existing_container="$(find_existing_devops_container "$docker_context" || true)"
+    if [ -n "$existing_container" ]; then
+        echo "Container '$existing_container' existe, mas não está rodando; iniciando e conectando..."
+        "${docker_cmd[@]}" start "$existing_container" >/dev/null
+        if [ "$#" -gt 0 ]; then
+            exec "${docker_cmd[@]}" exec -it "$existing_container" "$@"
+        fi
+        exec "${docker_cmd[@]}" exec -it "$existing_container" bash
+    fi
+
+    if docker_context_is_remote "$docker_context"; then
+        remote_context=1
+        echo "Nenhum container devops-tools rodando no contexto remoto; iniciando com volumes nomeados remotos..."
+    fi
+
+    if [ "$remote_context" -eq 0 ]; then
+        mkdir -p home backup logs "$PKG_STATE_DIR" "$VPN_CONFIG_DIR" "$OVPN_CONFIG_DIR" "$WG_KEYS_DIR"
+        mkdir -p "$PKG_STATE_DIR/bin"
+    fi
 
     docker_flags=(
-        --name devops-tools
+        --name "$RUN_CONTAINER_NAME"
         --init
         --privileged
         -it --tty --rm
         -u "$USER_ID:$GROUP_ID"
         --group-add "$DOCKER_GID"
         -v /var/run/docker.sock:/var/run/docker.sock
-        -v "$(pwd)/home:/tools"
-        -v "$HOME/.kube:/tools/.kube"
-        -v "$(pwd)/backup:/backup"
-        -v "$(pwd)/logs:/var/log"
-        -v "$PKG_STATE_DIR:/var/lib/devops-pkg"
-        -v "$VPN_CONFIG_DIR:/etc/wireguard"
-        -v "$OVPN_CONFIG_DIR:/etc/openvpn"
-        -v "$WG_KEYS_DIR:/etc/wireguard/keys"
         -e LOCAL_USER_ID="$USER_ID"
         -e LOCAL_GROUP_ID="$GROUP_ID"
         -e APP_VERSION="$VERSION"
         -p "$IP_BIND:$PORTS"
     )
+
+    if [ "$remote_context" -eq 1 ]; then
+        docker_flags+=(
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-home:/tools"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-backup:/backup"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-logs:/var/log"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-pkg-state:/var/lib/devops-pkg"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-wireguard:/etc/wireguard"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-openvpn:/etc/openvpn"
+            -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-wireguard-keys:/etc/wireguard/keys"
+        )
+    else
+        docker_flags+=(
+            -v "$(pwd)/home:/tools"
+            -v "$HOME/.kube:/tools/.kube"
+            -v "$(pwd)/backup:/backup"
+            -v "$(pwd)/logs:/var/log"
+            -v "$PKG_STATE_DIR:/var/lib/devops-pkg"
+            -v "$VPN_CONFIG_DIR:/etc/wireguard"
+            -v "$OVPN_CONFIG_DIR:/etc/openvpn"
+            -v "$WG_KEYS_DIR:/etc/wireguard/keys"
+        )
+    fi
 
     if [ -n "$DEVOPS_DNS" ]; then
         while IFS= read -r dns_ip; do
@@ -142,10 +352,10 @@ run() {
     fi
 
     # Usa entrypoint local atualizado se existir (evita precisar rebuildar imagem para ajustes)
-    if [ -f "$(pwd)/entrypoint.sh" ]; then
+    if [ "$remote_context" -eq 0 ] && [ -f "$(pwd)/entrypoint.sh" ]; then
         docker_flags+=(-v "$(pwd)/entrypoint.sh:/entrypoint.sh:ro")
     fi
-    if [ -f "$(pwd)/update-motd.sh" ]; then
+    if [ "$remote_context" -eq 0 ] && [ -f "$(pwd)/update-motd.sh" ]; then
         docker_flags+=(-v "$(pwd)/update-motd.sh:/usr/local/bin/update-motd.sh:ro")
     fi
 
@@ -156,7 +366,7 @@ run() {
         fi
     done
 
-    if [ -d "/mnt/sdb/backup" ]; then
+    if [ "$remote_context" -eq 0 ] && [ -d "/mnt/sdb/backup" ]; then
         docker_flags+=(-v "/mnt/sdb/backup:/devtools_backup")
     fi
 
@@ -167,7 +377,7 @@ run() {
         fi
     fi
 
-    docker run "${docker_flags[@]}" "$IMAGE_NAME:$IMAGE_TAG" "$@"
+    "${docker_cmd[@]}" run "${docker_flags[@]}" "$IMAGE_NAME:$IMAGE_TAG" "$@"
 }
 
 # Verificar se a opção de ajuda foi solicitada (tolerante a ausência de args)

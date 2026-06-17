@@ -30,7 +30,7 @@ fi
 
 # Instala o doctl
 echo "Instalando doctl..."
-install -o root -g root -m 0755 "$DOCTL_BIN" /usr/local/bin/ || error_exit "Falha ao instalar o doctl"
+install_pkg_bin "$DOCTL_BIN" doctl
 
 # Limpeza
 echo "Limpando arquivos temporários..."

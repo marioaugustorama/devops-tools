@@ -31,7 +31,7 @@ fi
 
 # Instala o eksctl
 echo "Instalando eksctl..."
-install -o root -g root -m 0755 eksctl /usr/local/bin/ || error_exit "Falha ao instalar o eksctl"
+install_pkg_bin eksctl eksctl
 
 # Limpeza
 echo "Limpando arquivos temporários..."

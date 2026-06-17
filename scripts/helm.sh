@@ -32,6 +32,6 @@ fi
 
 # Instala o Helm
 echo "Instalando Helm..."
-install -o root -g root -m 0755 "${TMP_DIR}/linux-amd64/helm" /usr/local/bin/ || error_exit "Falha ao instalar o Helm"
+install_pkg_bin "${TMP_DIR}/linux-amd64/helm" helm
 
 echo "Instalação do Helm ${HELM_VERSION} concluída com sucesso."

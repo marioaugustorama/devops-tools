@@ -42,7 +42,7 @@ if [ $? -eq 0 ]; then
 
     # Instala o Kubespy
     echo "Instalando Kubespy..."
-    install -o root -g root -m 0755 "$BINARY_NAME" /usr/local/bin/ || error_exit "Falha ao instalar o Kubespy"
+    install_pkg_bin "$BINARY_NAME" kubespy
 
     # Limpeza
     echo "Limpando arquivos temporários..."

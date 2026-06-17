@@ -17,7 +17,7 @@ if [ ! -f "$TMP_FILE" ]; then
 fi
 
 echo "Instalando EKS Node Viewer..."
-install -o root -g root -m 0755 "$TMP_FILE" "$INSTALL_PATH" || error_exit "Falha ao instalar o EKS Node Viewer"
+install_pkg_bin "$TMP_FILE" "eks-node-viewer"
 
 echo "Limpando arquivos temporários..."
 rm -f "$TMP_FILE" || error_exit "Falha ao limpar arquivos temporários"

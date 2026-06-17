@@ -35,6 +35,49 @@ get_pkg_cache_dir() {
     echo "$fallback"
 }
 
+# Diretório persistente para binários instalados sob demanda.
+get_pkg_bin_dir() {
+    local bin_dir="${PKG_BIN_DIR:-}"
+    if [ -n "$bin_dir" ]; then
+        mkdir -p "$bin_dir" 2>/dev/null || true
+        echo "$bin_dir"
+    else
+        echo "/usr/local/bin"
+    fi
+}
+
+pkg_bin_path() {
+    local name="${1:-}"
+    [ -n "$name" ] || error_exit "pkg_bin_path requer o nome do binário"
+    printf '%s/%s\n' "$(get_pkg_bin_dir)" "$name"
+}
+
+install_pkg_bin() {
+    local source_path="${1:-}"
+    local dest_name="${2:-}"
+    [ -n "$source_path" ] || error_exit "install_pkg_bin requer o caminho de origem"
+    [ -n "$dest_name" ] || dest_name="$(basename "$source_path")"
+
+    install -o root -g root -m 0755 "$source_path" "$(pkg_bin_path "$dest_name")" || \
+        error_exit "Falha ao instalar o binário persistente: $dest_name"
+}
+
+link_pkg_bin() {
+    local target_name="${1:-}"
+    local link_name="${2:-}"
+    [ -n "$target_name" ] || error_exit "link_pkg_bin requer o binário alvo"
+    [ -n "$link_name" ] || link_name="$target_name"
+
+    ln -sf "$(pkg_bin_path "$target_name")" "$(pkg_bin_path "$link_name")" || \
+        error_exit "Falha ao criar link persistente: $link_name -> $target_name"
+}
+
+pkg_bin_exists() {
+    local name="${1:-}"
+    [ -n "$name" ] || error_exit "pkg_bin_exists requer o nome do binário"
+    [ -x "$(pkg_bin_path "$name")" ]
+}
+
 # Baixa arquivo com cache local persistente:
 # - se arquivo já existe no cache, reaproveita sem rede
 # - se não existe, baixa e salva no cache para próximas execuções
