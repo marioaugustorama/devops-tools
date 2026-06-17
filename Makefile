@@ -16,6 +16,7 @@ STRICT_CHECKSUM ?= 1
 BUILD_OPTS ?= --network=host
 TRIVY_SEVERITY ?= HIGH,CRITICAL
 TRIVY_OPTS ?= --ignore-unfixed
+COMPOSE_PULL ?= always
 
 # Export variables to recipes
 export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
@@ -38,7 +39,7 @@ help:
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
-	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, TRIVY_SEVERITY, TRIVY_OPTS"
+	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, TRIVY_SEVERITY, TRIVY_OPTS, COMPOSE_PULL"
 	@echo "Examples:"
 	@echo "  make build TAG=v1.17.0"
 	@echo "  make build TAG=v1.17.0 APT_MIRROR=http://br.archive.ubuntu.com/ubuntu"
@@ -71,14 +72,15 @@ run:
 
 compose-up:
 	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
-	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d --pull $(COMPOSE_PULL)
 
 compose-up-vpn:
 	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
-	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose -f compose.yaml -f compose.vpn.yaml up -d --pull $(COMPOSE_PULL)
 
 compose-shell:
 	DEVOPS_IMAGE=$(IMAGE) ./bin/init-compose-env
+	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose up -d --pull $(COMPOSE_PULL)
 	LOCAL_USER_ID=$$(id -u) LOCAL_GROUP_ID=$$(id -g) DOCKER_GID=$$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0) DEVOPS_IMAGE=$(IMAGE) DEVOPS_TAG=$(TAG) APP_VERSION=$(TAG) docker compose exec devops-tools bash
 
 compose-down:

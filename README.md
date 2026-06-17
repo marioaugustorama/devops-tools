@@ -133,6 +133,8 @@ bin/init-compose-env
 docker compose up -d
 ```
 
+Os atalhos `make compose-up`, `make compose-up-vpn` e `make compose-shell` usam `--pull always` por padrão para garantir a imagem mais recente publicada. Se quiser reutilizar a imagem local sem puxar do registry, passe `COMPOSE_PULL=missing`.
+
 Se preferir, use os atalhos do `Makefile`, que já regeneram o `.env` a partir de `version` antes de chamar o Compose:
 
 ```bash
@@ -205,13 +207,14 @@ Mantém o fluxo existente:
 ```
 
 Na inicialização, o `run.sh` verifica os `docker contexts` registrados no host. Se
-houver mais de um, mostra um menu para escolher onde o container será iniciado. Se
-só existir o `default`, segue direto sem perguntar. Quando o contexto escolhido já
-tiver um container `devops-tools` ou `devops-tools-daemon` rodando, o script entra
-nele com `docker exec` em vez de iniciar outro container. Se o container existir
-mas estiver parado, ele é iniciado e a sessão entra nele. Se não houver container,
-inicia um novo no contexto escolhido; em contextos remotos, usa volumes Docker
-nomeados no daemon remoto para evitar bind mounts de caminhos locais.
+houver mais de um, mostra uma lista numerada para escolher onde o container será
+iniciado. Se só existir o `default`, segue direto sem perguntar. Quando o contexto
+escolhido já tiver um container `devops-tools` ou `devops-tools-daemon` rodando, o
+script entra nele com `docker exec` em vez de iniciar outro container. Se o
+container existir mas estiver parado, ele é iniciado e a sessão entra nele. Se não
+houver container, inicia um novo no contexto escolhido; em contextos remotos, usa
+volumes Docker nomeados no daemon remoto para evitar bind mounts de caminhos
+locais.
 
 Para escolher sem menu:
 
@@ -393,11 +396,15 @@ secret-run DB_PASSWORD get password "meu-item" -- ./meu-script.sh
 ```
 
 #### Auto-instalação na subida do container
-- Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/auto-install.list` (pkg_add) e `pkg_state/apt-packages.list` (apt). Linhas em branco ou começando com `#` são ignoradas.
-- Edite esses arquivos no host para listar apenas o que quer auto-instalar. Exemplos:
+- Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/bin/` para binários persistentes, `pkg_state/installed.list` e `pkg_state/auto-install.list` para `pkg_add`, além de `pkg_state/apt-packages.list` para `apt`. Linhas em branco ou começando com `#` são ignoradas.
+- O `pkg_add install ...` passa a gravar binários que suportam esse fluxo em `pkg_state/bin/`, então o que você instalou manualmente volta automaticamente na próxima subida do container.
+- Use `auto-install.list` só para forçar pacotes extras que devem subir sempre, mesmo sem terem sido instalados manualmente.
+- Exemplos:
+  - `pkg_state/bin/`: binários como `kubectl`, `helm`, `terraform`, `opentofu`, `doctl`
+  - `pkg_state/installed.list`: preenchido automaticamente pelo `pkg_add`
   - `pkg_state/auto-install.list`: `kubectl`, `helm`, `k9s`
   - `pkg_state/apt-packages.list`: `traceroute`, `nmap`
-- Suba o container com `PKG_AUTO_RESTORE=1 ./run.sh ...` para aplicar essas listas automaticamente. Combine com `PKG_LAZY_INSTALL=0` se não quiser instalação sob demanda via `command_not_found`.
+- A restauração automática vem habilitada por padrão. Se quiser uma sessão realmente temporária, suba com `PKG_AUTO_RESTORE=0 ./run.sh ...`. Combine com `PKG_LAZY_INSTALL=0` se não quiser instalação sob demanda via `command_not_found`.
 
 ### Como adicionar um novo pacote
 

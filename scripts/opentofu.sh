@@ -17,7 +17,7 @@ echo "Extraindo OpenTofu..."
 unzip -o "${TMP_DIR}/${FILENAME}" tofu -d "$TMP_DIR" || error_exit "Falha ao extrair OpenTofu"
 
 echo "Instalando OpenTofu..."
-install -o root -g root -m 0755 "${TMP_DIR}/tofu" /usr/local/bin/tofu || error_exit "Falha ao instalar tofu"
-ln -sf /usr/local/bin/tofu /usr/local/bin/opentofu || error_exit "Falha ao criar symlink opentofu"
+install_pkg_bin "${TMP_DIR}/tofu" tofu
+link_pkg_bin tofu opentofu
 
 echo "Instalação do OpenTofu ${TOFU_VERSION} concluída com sucesso."

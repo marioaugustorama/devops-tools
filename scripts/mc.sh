@@ -19,7 +19,7 @@ fi
 
 # Instala o MinIO Client
 echo "Instalando MinIO Client (mc)..."
-install -o root -g root -m 0755 mc "$MC_PATH" || error_exit "Falha ao instalar o MinIO Client"
+install_pkg_bin mc mc
 
 # Limpeza
 echo "Limpando arquivos temporários..."

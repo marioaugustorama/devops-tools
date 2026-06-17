@@ -35,7 +35,7 @@ unzip -o "$ZIP_NAME" bw || error_exit "Falha ao extrair ${ZIP_NAME}"
 [ -f "bw" ] || error_exit "Binário bw não encontrado após extração."
 
 echo "Instalando Bitwarden CLI..."
-install -o root -g root -m 0755 bw /usr/local/bin/bw || error_exit "Falha ao instalar bw"
+install_pkg_bin bw bw
 
 rm -f bw "$ZIP_NAME" "$SHA_NAME"
 

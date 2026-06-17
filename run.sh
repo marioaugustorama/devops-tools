@@ -98,6 +98,16 @@ docker_context_is_remote() {
     esac
 }
 
+docker_context_scope_label() {
+    local context="$1"
+
+    if docker_context_is_remote "$context"; then
+        printf 'remoto'
+    else
+        printf 'local'
+    fi
+}
+
 find_running_devops_container() {
     local context="$1"
     local name running
@@ -142,34 +152,19 @@ find_existing_devops_container() {
     return 1
 }
 
-select_docker_context() {
-    local contexts=()
-    local current default_context selected choice context index
-
-    if [ -n "$DEVOPS_DOCKER_CONTEXT" ]; then
-        printf '%s\n' "$DEVOPS_DOCKER_CONTEXT"
-        return
-    fi
-
-    mapfile -t contexts < <(docker context ls --format '{{.Name}}' 2>/dev/null | awk 'NF' || true)
-    if [ "${#contexts[@]}" -le 1 ] || [ "$DEVOPS_DOCKER_CONTEXT_PROMPT" = "0" ] || [ ! -t 0 ]; then
-        printf 'default\n'
-        return
-    fi
-
-    current="$(docker context show 2>/dev/null || true)"
-    default_context="$current"
-    if [ -z "$default_context" ] || ! docker_context_exists "$default_context"; then
-        default_context="default"
-    fi
+select_docker_context_numeric() {
+    local default_context="$1"
+    shift
+    local contexts=("$@")
+    local selected choice context index
 
     echo "Docker contexts encontrados:" >&2
     index=1
     for context in "${contexts[@]}"; do
         if [ "$context" = "$default_context" ]; then
-            printf '  %d) %s (atual)\n' "$index" "$context" >&2
+            printf '  %d) %s (atual, %s)\n' "$index" "$context" "$(docker_context_scope_label "$context")" >&2
         else
-            printf '  %d) %s\n' "$index" "$context" >&2
+            printf '  %d) %s (%s)\n' "$index" "$context" "$(docker_context_scope_label "$context")" >&2
         fi
         index=$((index + 1))
     done
@@ -196,6 +191,30 @@ select_docker_context() {
 
         echo "Contexto inválido: $selected" >&2
     done
+}
+
+select_docker_context() {
+    local contexts=()
+    local current default_context
+
+    if [ -n "$DEVOPS_DOCKER_CONTEXT" ]; then
+        printf '%s\n' "$DEVOPS_DOCKER_CONTEXT"
+        return
+    fi
+
+    mapfile -t contexts < <(docker context ls --format '{{.Name}}' 2>/dev/null | awk 'NF' || true)
+    if [ "${#contexts[@]}" -le 1 ] || [ "$DEVOPS_DOCKER_CONTEXT_PROMPT" = "0" ] || [ ! -t 0 ]; then
+        printf 'default\n'
+        return
+    fi
+
+    current="$(docker context show 2>/dev/null || true)"
+    default_context="$current"
+    if [ -z "$default_context" ] || ! docker_context_exists "$default_context"; then
+        default_context="default"
+    fi
+
+    select_docker_context_numeric "$default_context" "${contexts[@]}"
 }
 
 auto_detect_dns_from_wireguard() {
@@ -276,6 +295,7 @@ run() {
 
     if [ "$remote_context" -eq 0 ]; then
         mkdir -p home backup logs "$PKG_STATE_DIR" "$VPN_CONFIG_DIR" "$OVPN_CONFIG_DIR" "$WG_KEYS_DIR"
+        mkdir -p "$PKG_STATE_DIR/bin"
     fi
 
     docker_flags=(

@@ -21,7 +21,7 @@ fi
 
 # Instala o Kubebox
 echo "Instalando Kubebox..."
-install -o root -g root -m 0755 "$BINARY_NAME" "$INSTALL_PATH" || error_exit "Falha ao instalar o Kubebox"
+install_pkg_bin "$BINARY_NAME" kubebox
 
 # Limpeza
 echo "Limpando arquivos temporários..."

@@ -33,6 +33,6 @@ fi
 
 # Instala o Terraform
 echo "Instalando Terraform..."
-install -o root -g root -m 0755 "${TMP_DIR}/${BINARY_NAME}" /usr/local/bin/ || error_exit "Falha ao instalar o Terraform"
+install_pkg_bin "${TMP_DIR}/${BINARY_NAME}" terraform
 
 echo "Instalação do Terraform concluída com sucesso."

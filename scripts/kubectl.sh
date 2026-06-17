@@ -6,7 +6,6 @@ source /usr/local/bin/utils.sh
 
 # Define a URL base e o caminho de destino
 KUBECTL_URL_BASE="https://dl.k8s.io/release"
-KUBECTL_PATH="/usr/local/bin/kubectl"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.35.2}"
 
 # Define a URL completa para download
@@ -25,6 +24,6 @@ fi
 
 # Instala o kubectl
 echo "Instalando kubectl..."
-install -o root -g root -m 0755 "${TMP_DIR}/kubectl" "$KUBECTL_PATH" || error_exit "Falha ao instalar o kubectl"
+install_pkg_bin "${TMP_DIR}/kubectl" kubectl
 
 echo "Instalação do kubectl ${KUBECTL_VERSION} concluída com sucesso."

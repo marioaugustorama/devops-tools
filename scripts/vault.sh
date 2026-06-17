@@ -18,7 +18,7 @@ echo "Extraindo o arquivo ZIP..."
 unzip -o "${FILENAME}" || error_exit "Falha ao descompactar o Vault."
 
 # Instala o binário do Vault
-install -o root -g root -m 0755 vault /usr/local/bin || error_exit "Falha ao instalar o Vault."
+install_pkg_bin vault vault || error_exit "Falha ao instalar o Vault."
 
 # Limpa os arquivos temporários
 rm -f "${FILENAME}" vault LICENSE.txt || error_exit "Falha ao remover arquivos temporários."
