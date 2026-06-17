@@ -238,7 +238,7 @@ DEVOPS_CONTAINER_NAME=meu-container DEVOPS_DOCKER_CONTEXT=meu-contexto ./run.sh
 Para controlar o prefixo dos volumes criados no daemon remoto:
 
 ```bash
-DEVOPS_REMOTE_VOLUME_PREFIX=devops-zello DEVOPS_DOCKER_CONTEXT=zello ./run.sh
+DEVOPS_REMOTE_VOLUME_PREFIX=devops-remote DEVOPS_DOCKER_CONTEXT=meu-contexto-remoto ./run.sh
 ```
 
 Ou com comando direto:
