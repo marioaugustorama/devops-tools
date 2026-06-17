@@ -19,7 +19,7 @@ else
     AZ_DEB_URL="https://packages.microsoft.com/repos/azure-cli/pool/main/a/azure-cli/${AZ_DEB}"
 
     echo "Tentando instalar Azure CLI ${AZURE_CLI_VERSION}..."
-    if curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$AZ_DEB" "$AZ_DEB_URL"; then
+    if curl -fL --retry 5 --connect-timeout 10 -o "$AZ_DEB" "$AZ_DEB_URL"; then
         apt-get update -qq || true
         apt-get install -y --no-install-recommends ./"$AZ_DEB" || {
             apt-get install -f -y
@@ -29,7 +29,7 @@ else
     else
         echo "Aviso: pacote pinado não disponível; usando instalador oficial."
         AZ_INSTALL_SCRIPT="/tmp/install-azure-cli.sh"
-        curl -fL --retry 5 --retry-all-errors --connect-timeout 10 -o "$AZ_INSTALL_SCRIPT" "$AZ_CLI_INSTALL_URL" || error_exit "Falha ao baixar instalador oficial Azure CLI"
+        curl -fL --retry 5 --connect-timeout 10 -o "$AZ_INSTALL_SCRIPT" "$AZ_CLI_INSTALL_URL" || error_exit "Falha ao baixar instalador oficial Azure CLI"
         bash "$AZ_INSTALL_SCRIPT" || error_exit "Falha ao instalar o Azure CLI"
         rm -f "$AZ_INSTALL_SCRIPT"
     fi
