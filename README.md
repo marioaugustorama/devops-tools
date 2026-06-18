@@ -9,6 +9,7 @@ Este é um projeto público e não deve conter paths absolutos válidos apenas n
 - Use defaults relativos ao repositório, volumes nomeados ou variáveis de ambiente.
 - Se um caminho variar por máquina, configure em `.env` local ou exporte no shell.
 - Não publique atalhos com `/mnt/...`, `/home/<usuario>/...` ou equivalentes no código.
+- Os caminhos configuráveis mais comuns estão em [.env.example](/home/marionunes/k8s/.env.example), incluindo `BUILD_CACHE_DIR`, `PKG_STATE_DIR`, `PKG_BIN_VOLUME`, `VPN_CONFIG_DIR`, `OVPN_CONFIG_DIR`, `WG_KEYS_DIR` e `HOSTS_FILE`.
 
 ## Makefile (build/push/run)
 
