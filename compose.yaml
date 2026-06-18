@@ -41,3 +41,7 @@ services:
       - ./entrypoint.sh:/entrypoint.sh:ro
       - ./update-motd.sh:/usr/local/bin/update-motd.sh:ro
     command: ["sleep", "infinity"]
+
+volumes:
+  devops-tools-pkg-bin:
+    name: ${PKG_BIN_VOLUME:-devops-tools-pkg-bin}
