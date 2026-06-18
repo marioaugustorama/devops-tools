@@ -99,6 +99,7 @@ DEVOPS_DNS_AUTO=${DEVOPS_DNS_AUTO:-1}
 DEVOPS_DOCKER_CONTEXT="${DEVOPS_DOCKER_CONTEXT:-${DOCKER_CONTEXT:-}}"
 DEVOPS_DOCKER_CONTEXT_PROMPT="${DEVOPS_DOCKER_CONTEXT_PROMPT:-1}"
 DEVOPS_REMOTE_VOLUME_PREFIX="${DEVOPS_REMOTE_VOLUME_PREFIX:-$RUN_CONTAINER_NAME}"
+PKG_BIN_VOLUME="${PKG_BIN_VOLUME:-${DEVOPS_REMOTE_VOLUME_PREFIX}-pkg-bin}"
 
 # If PKG_STATE_DIR comes from the environment and is not writable (e.g. /var/lib/*),
 # fall back to a local directory so non-root users can run the container.
@@ -118,6 +119,7 @@ show_help() {
     echo "  Env: DEVOPS_DOCKER_CONTEXT_PROMPT=0 Desativa o menu de contextos"
     echo "  Env: DEVOPS_CONTAINER_NAME=<nome> Nome do container para iniciar/conectar"
     echo "  Env: DEVOPS_REMOTE_VOLUME_PREFIX=<nome> Prefixo dos volumes em contexto remoto"
+    echo "  Env: PKG_BIN_VOLUME=<nome> Volume nomeado para /var/lib/devops-pkg/bin"
     echo "  Env: DEVOPS_WORKSPACE_AUTO_SYNC=0|1 Atualiza o checkout local via git pull --ff-only"
     echo "  Env: DEVOPS_WORKSPACE_FIX_PERMS=0|1 Corrige permissões executáveis do workspace"
     echo "  Env: DEVOPS_DNS=IP[,IP] DEVOPS_DNS_SEARCH=dominio[,dominio] DEVOPS_DNS_AUTO=0|1"
@@ -361,7 +363,6 @@ run() {
 
     if [ "$remote_context" -eq 0 ]; then
         mkdir -p home backup logs "$PKG_STATE_DIR" "$VPN_CONFIG_DIR" "$OVPN_CONFIG_DIR" "$WG_KEYS_DIR"
-        mkdir -p "$PKG_STATE_DIR/bin"
     fi
 
     docker_flags=(
@@ -384,6 +385,7 @@ run() {
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-backup:/backup"
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-logs:/var/log"
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-pkg-state:/var/lib/devops-pkg"
+            -v "${PKG_BIN_VOLUME}:/var/lib/devops-pkg/bin"
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-wireguard:/etc/wireguard"
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-openvpn:/etc/openvpn"
             -v "${DEVOPS_REMOTE_VOLUME_PREFIX}-wireguard-keys:/etc/wireguard/keys"
@@ -395,6 +397,7 @@ run() {
             -v "$(pwd)/backup:/backup"
             -v "$(pwd)/logs:/var/log"
             -v "$PKG_STATE_DIR:/var/lib/devops-pkg"
+            -v "${PKG_BIN_VOLUME}:/var/lib/devops-pkg/bin"
             -v "$VPN_CONFIG_DIR:/etc/wireguard"
             -v "$OVPN_CONFIG_DIR:/etc/openvpn"
             -v "$WG_KEYS_DIR:/etc/wireguard/keys"

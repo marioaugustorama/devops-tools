@@ -407,11 +407,11 @@ secret-run DB_PASSWORD get password "meu-item" -- ./meu-script.sh
 ```
 
 #### Auto-instalação na subida do container
-- Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/bin/` para binários persistentes, `pkg_state/installed.list` e `pkg_state/auto-install.list` para `pkg_add`, além de `pkg_state/apt-packages.list` para `apt`. Linhas em branco ou começando com `#` são ignoradas.
-- O `pkg_add install ...` passa a gravar binários que suportam esse fluxo em `pkg_state/bin/`, então o que você instalou manualmente volta automaticamente na próxima subida do container.
+- Arquivos persistentes: `pkg_state/` no host guarda `installed.list`, `auto-install.list` e `apt-packages.list`; os binários do `pkg_add` ficam em um volume nomeado montado em `/var/lib/devops-pkg/bin`. Linhas em branco ou começando com `#` são ignoradas.
+- O `pkg_add install ...` passa a gravar binários compatíveis no volume nomeado de `/var/lib/devops-pkg/bin`, então o que você instalou manualmente volta automaticamente na próxima subida do container.
 - Use `auto-install.list` só para forçar pacotes extras que devem subir sempre, mesmo sem terem sido instalados manualmente.
 - Exemplos:
-  - `pkg_state/bin/`: binários como `kubectl`, `helm`, `terraform`, `opentofu`, `doctl`
+  - volume nomeado de `/var/lib/devops-pkg/bin`: binários como `kubectl`, `helm`, `terraform`, `opentofu`, `doctl`
   - `pkg_state/installed.list`: preenchido automaticamente pelo `pkg_add`
   - `pkg_state/auto-install.list`: `kubectl`, `helm`, `k9s`
   - `pkg_state/apt-packages.list`: `traceroute`, `nmap`
