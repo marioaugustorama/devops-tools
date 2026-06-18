@@ -49,7 +49,8 @@ help:
 
 build:
 	@mkdir -p "$(BUILD_CACHE_DIR)"; \
-	if docker buildx version >/dev/null 2>&1; then \
+	builder_driver="$$(docker buildx inspect 2>/dev/null | awk -F': ' '/^Driver:/ {print $$2; exit}')"; \
+	if docker buildx version >/dev/null 2>&1 && [ "$$builder_driver" != "docker" ]; then \
 	  docker buildx build $(BUILD_OPTS) \
 	    --cache-from type=local,src="$(BUILD_CACHE_DIR)" \
 	    --cache-to type=local,dest="$(BUILD_CACHE_DIR)",mode=max \

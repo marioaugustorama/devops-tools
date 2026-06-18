@@ -84,6 +84,8 @@ RUN locale-gen pt_BR.UTF-8 && \
 ENV LANG=pt_BR.UTF-8
 ENV LANGUAGE=pt_BR:pt
 ENV LC_ALL=pt_BR.UTF-8
+ENV PKG_BIN_DIR=/var/lib/devops-pkg/bin
+ENV PATH=/var/lib/devops-pkg/bin:${PATH}
 
 ############################################################
 # Atualiza o motd e bashrc (se arquivos existirem no contexto)
