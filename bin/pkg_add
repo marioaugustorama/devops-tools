@@ -63,7 +63,7 @@ try_run_sudo() {
     "$@"
   elif command -v sudo >/dev/null 2>&1; then
     if sudo -n true 2>/dev/null; then
-      sudo \
+      sudo env \
         PKG_BIN_DIR="${PKG_BIN_DIR:-}" \
         PKG_CACHE_DIR="${PKG_CACHE_DIR:-}" \
         PKG_CACHE_ENABLED="${PKG_CACHE_ENABLED:-}" \

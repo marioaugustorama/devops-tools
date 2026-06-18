@@ -37,9 +37,14 @@ get_pkg_cache_dir() {
 
 # Diretório persistente para binários instalados sob demanda.
 get_pkg_bin_dir() {
-    local bin_dir="${PKG_BIN_DIR:-}"
-    if [ -n "$bin_dir" ] && mkdir -p "$bin_dir" 2>/dev/null && [ -w "$bin_dir" ]; then
+    local bin_dir="${PKG_BIN_DIR:-/var/lib/devops-pkg/bin}"
+    if mkdir -p "$bin_dir" 2>/dev/null && [ -w "$bin_dir" ]; then
         echo "$bin_dir"
+        return 0
+    fi
+
+    if [ "$bin_dir" != "/var/lib/devops-pkg/bin" ] && mkdir -p /var/lib/devops-pkg/bin 2>/dev/null && [ -w /var/lib/devops-pkg/bin ]; then
+        echo "/var/lib/devops-pkg/bin"
         return 0
     fi
 
