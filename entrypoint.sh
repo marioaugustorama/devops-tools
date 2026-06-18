@@ -130,6 +130,7 @@ fi
 chmod 700 "$STATE_DIR" 2>/dev/null || true
 chmod 755 "$PKG_BIN_DIR" 2>/dev/null || true
 export PKG_BIN_DIR
+export STATE_DIR
 case ":$PATH:" in
     *":$PKG_BIN_DIR:"*) ;;
     *) export PATH="$PKG_BIN_DIR:$PATH" ;;

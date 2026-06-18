@@ -38,12 +38,18 @@ get_pkg_cache_dir() {
 # Diretório persistente para binários instalados sob demanda.
 get_pkg_bin_dir() {
     local bin_dir="${PKG_BIN_DIR:-}"
-    if [ -n "$bin_dir" ]; then
-        mkdir -p "$bin_dir" 2>/dev/null || true
+    if [ -n "$bin_dir" ] && mkdir -p "$bin_dir" 2>/dev/null && [ -w "$bin_dir" ]; then
         echo "$bin_dir"
-    else
-        echo "/usr/local/bin"
+        return 0
     fi
+
+    local fallback="${HOME:-/tmp}/.devops-pkg/bin"
+    if mkdir -p "$fallback" 2>/dev/null && [ -w "$fallback" ]; then
+        echo "$fallback"
+        return 0
+    fi
+
+    echo "/usr/local/bin"
 }
 
 pkg_bin_path() {

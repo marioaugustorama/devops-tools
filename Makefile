@@ -14,12 +14,13 @@ STRICT_CHECKSUM ?= 1
 
 # Docker build options
 BUILD_OPTS ?= --network=host
+BUILD_CACHE_DIR ?= /mnt/sdb/devops-tools/buildx-cache
 TRIVY_SEVERITY ?= HIGH,CRITICAL
 TRIVY_OPTS ?= --ignore-unfixed
 COMPOSE_PULL ?= always
 
 # Export variables to recipes
-export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS
+export IMAGE TAG APT_MIRROR APT_SECURITY_MIRROR BUILD_OPTS BUILD_CACHE_DIR
 
 .PHONY: help build security-scan security-gate push tag-latest run compose-env compose-up compose-up-vpn compose-shell compose-down bump-patch bump-minor bump-major version
 
@@ -39,7 +40,7 @@ help:
 	@echo "  bump-<x>       Bump version file: patch|minor|major"
 	@echo "  version        Print current version"
 	@echo "  clean          Clean last builds"
-	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, TRIVY_SEVERITY, TRIVY_OPTS, COMPOSE_PULL"
+	@echo "Variables: IMAGE, TAG, APT_MIRROR, APT_SECURITY_MIRROR, BUILD_OPTS, BUILD_CACHE_DIR, TRIVY_SEVERITY, TRIVY_OPTS, COMPOSE_PULL"
 	@echo "Examples:"
 	@echo "  make build TAG=v1.17.0"
 	@echo "  make build TAG=v1.17.0 APT_MIRROR=http://br.archive.ubuntu.com/ubuntu"
@@ -47,12 +48,25 @@ help:
 
 
 build:
-	docker build $(BUILD_OPTS) \
-	  --build-arg APT_MIRROR=$(APT_MIRROR) \
-	  --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
-	  --build-arg APP_VERSION=$(TAG) \
-	  --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
-	  -t $(IMAGE):$(TAG) .
+	@mkdir -p "$(BUILD_CACHE_DIR)"; \
+	if docker buildx version >/dev/null 2>&1; then \
+	  docker buildx build $(BUILD_OPTS) \
+	    --cache-from type=local,src="$(BUILD_CACHE_DIR)" \
+	    --cache-to type=local,dest="$(BUILD_CACHE_DIR)",mode=max \
+	    --build-arg APT_MIRROR=$(APT_MIRROR) \
+	    --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
+	    --build-arg APP_VERSION=$(TAG) \
+	    --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
+	    --load \
+	    -t $(IMAGE):$(TAG) .; \
+	else \
+	  docker build $(BUILD_OPTS) \
+	    --build-arg APT_MIRROR=$(APT_MIRROR) \
+	    --build-arg APT_SECURITY_MIRROR=$(APT_SECURITY_MIRROR) \
+	    --build-arg APP_VERSION=$(TAG) \
+	    --build-arg STRICT_CHECKSUM=$(STRICT_CHECKSUM) \
+	    -t $(IMAGE):$(TAG) .; \
+	fi
 
 security-scan:
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.61.1 image --scanners vuln --severity $(TRIVY_SEVERITY) $(TRIVY_OPTS) $(IMAGE):$(TAG)
