@@ -14,7 +14,7 @@ STRICT_CHECKSUM ?= 1
 
 # Docker build options
 BUILD_OPTS ?= --network=host
-BUILD_CACHE_DIR ?= /mnt/sdb/devops-tools/buildx-cache
+BUILD_CACHE_DIR ?= $(HOME)/.cache/devops-tools/buildx-cache
 TRIVY_SEVERITY ?= HIGH,CRITICAL
 TRIVY_OPTS ?= --ignore-unfixed
 COMPOSE_PULL ?= always

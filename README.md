@@ -5,12 +5,12 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 ## Makefile (build/push/run)
 
 Alvos principais:
-- `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`, `BUILD_CACHE_DIR=/mnt/sdb/devops-tools/buildx-cache`.
+- `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`, `BUILD_CACHE_DIR=~/.cache/devops-tools/buildx-cache`.
 - `make security-scan [TAG=...]` executa scan Trivy (HIGH/CRITICAL por padrão).
 - `make security-gate [TAG=...]` igual ao scan, mas falha (`exit 1`) quando encontra vulnerabilidades.
 - `make push [TAG=...]` publica a imagem atual.
 - `make tag-latest` marca a imagem atual como `latest` e envia.
-- O cache de build padrão fica em `/mnt/sdb/devops-tools/buildx-cache` quando `docker buildx` estiver disponível, para reduzir uso do disco raiz.
+- O cache de build padrão fica em `~/.cache/devops-tools/buildx-cache` quando `docker buildx` estiver disponível, para reduzir uso do disco raiz.
 - `make run [TAG=...]` sobe o container via `run.sh` com `IMAGE/TAG` definidos.
 - `make compose-up [TAG=...]` sobe o modo daemon com `docker compose up -d`.
 - `make compose-up-vpn [TAG=...]` sobe o daemon com capacidade de VPN (`NET_ADMIN` + `/dev/net/tun`).

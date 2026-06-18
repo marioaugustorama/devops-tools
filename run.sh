@@ -435,10 +435,6 @@ run() {
         fi
     done
 
-    if [ "$remote_context" -eq 0 ] && [ -d "/mnt/sdb/backup" ]; then
-        docker_flags+=(-v "/mnt/sdb/backup:/devtools_backup")
-    fi
-
     if [ "${ENABLE_WIREGUARD}" -eq 1 ]; then
         docker_flags+=(--device /dev/net/tun --cap-add=NET_ADMIN)
         if [ "${ENABLE_WG_FORWARDING}" -eq 1 ]; then
