@@ -5,11 +5,12 @@ A distribuição foi projetada para atender às necessidades de profissionais e 
 ## Makefile (build/push/run)
 
 Alvos principais:
-- `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`.
+- `make build [TAG=vX.Y.Z]` cria a imagem `marioaugustorama/devops-tools:<TAG>` (usa rede host). Variáveis úteis: `IMAGE`, `TAG`, `APT_MIRROR`, `APT_SECURITY_MIRROR`, `STRICT_CHECKSUM=0|1`, `BUILD_OPTS="--network=host"`, `BUILD_CACHE_DIR=/mnt/sdb/devops-tools/buildx-cache`.
 - `make security-scan [TAG=...]` executa scan Trivy (HIGH/CRITICAL por padrão).
 - `make security-gate [TAG=...]` igual ao scan, mas falha (`exit 1`) quando encontra vulnerabilidades.
 - `make push [TAG=...]` publica a imagem atual.
 - `make tag-latest` marca a imagem atual como `latest` e envia.
+- O cache de build padrão fica em `/mnt/sdb/devops-tools/buildx-cache` quando `docker buildx` estiver disponível, para reduzir uso do disco raiz.
 - `make run [TAG=...]` sobe o container via `run.sh` com `IMAGE/TAG` definidos.
 - `make compose-up [TAG=...]` sobe o modo daemon com `docker compose up -d`.
 - `make compose-up-vpn [TAG=...]` sobe o daemon com capacidade de VPN (`NET_ADMIN` + `/dev/net/tun`).
@@ -238,7 +239,17 @@ DEVOPS_CONTAINER_NAME=meu-container DEVOPS_DOCKER_CONTEXT=meu-contexto ./run.sh
 Para controlar o prefixo dos volumes criados no daemon remoto:
 
 ```bash
-DEVOPS_REMOTE_VOLUME_PREFIX=devops-zello DEVOPS_DOCKER_CONTEXT=zello ./run.sh
+DEVOPS_REMOTE_VOLUME_PREFIX=devops-remote DEVOPS_DOCKER_CONTEXT=meu-contexto-remoto ./run.sh
+```
+
+Na inicialização, o `run.sh` também:
+- normaliza as permissões executáveis dos scripts do workspace, principalmente `bin/*`
+- verifica se o checkout local está atrás do upstream e, se estiver limpo, faz `git pull --ff-only`
+
+Se quiser desativar esse comportamento:
+
+```bash
+DEVOPS_WORKSPACE_AUTO_SYNC=0 DEVOPS_WORKSPACE_FIX_PERMS=0 ./run.sh
 ```
 
 Ou com comando direto:
@@ -396,11 +407,11 @@ secret-run DB_PASSWORD get password "meu-item" -- ./meu-script.sh
 ```
 
 #### Auto-instalação na subida do container
-- Arquivos persistentes (montados em `/var/lib/devops-pkg`, diretório `pkg_state/` no host): `pkg_state/bin/` para binários persistentes, `pkg_state/installed.list` e `pkg_state/auto-install.list` para `pkg_add`, além de `pkg_state/apt-packages.list` para `apt`. Linhas em branco ou começando com `#` são ignoradas.
-- O `pkg_add install ...` passa a gravar binários que suportam esse fluxo em `pkg_state/bin/`, então o que você instalou manualmente volta automaticamente na próxima subida do container.
+- Arquivos persistentes: `pkg_state/` no host guarda `installed.list`, `auto-install.list` e `apt-packages.list`; os binários do `pkg_add` ficam em um volume nomeado montado em `/var/lib/devops-pkg/bin`. Linhas em branco ou começando com `#` são ignoradas.
+- O `pkg_add install ...` passa a gravar binários compatíveis no volume nomeado de `/var/lib/devops-pkg/bin`, então o que você instalou manualmente volta automaticamente na próxima subida do container.
 - Use `auto-install.list` só para forçar pacotes extras que devem subir sempre, mesmo sem terem sido instalados manualmente.
 - Exemplos:
-  - `pkg_state/bin/`: binários como `kubectl`, `helm`, `terraform`, `opentofu`, `doctl`
+  - volume nomeado de `/var/lib/devops-pkg/bin`: binários como `kubectl`, `helm`, `terraform`, `opentofu`, `doctl`
   - `pkg_state/installed.list`: preenchido automaticamente pelo `pkg_add`
   - `pkg_state/auto-install.list`: `kubectl`, `helm`, `k9s`
   - `pkg_state/apt-packages.list`: `traceroute`, `nmap`

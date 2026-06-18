@@ -34,6 +34,7 @@ services:
       - ./backup:/backup
       - ./logs:/var/log
       - ${PKG_STATE_DIR:-./pkg_state}:/var/lib/devops-pkg
+      - ${PKG_BIN_VOLUME:-devops-tools-pkg-bin}:/var/lib/devops-pkg/bin
       - ${VPN_CONFIG_DIR:-./vpn-configs}:/etc/wireguard
       - ${OVPN_CONFIG_DIR:-./openvpn-configs}:/etc/openvpn
       - ${WG_KEYS_DIR:-./wireguard-keys}:/etc/wireguard/keys

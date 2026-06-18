@@ -41,4 +41,4 @@ AWS_BIN_DIR="$(get_pkg_bin_dir)"
 echo "Limpando arquivos temporários..."
 rm -rf "$AWSCLI_ZIP" aws || error_exit "Falha ao limpar arquivos temporários"
 
-echo "Instalação do AWS CLI concluída com sucesso: $(/usr/local/bin/aws --version 2>&1)"
+echo "Instalação do AWS CLI concluída com sucesso: $( "$AWS_BIN_DIR/aws" --version 2>&1 )"
