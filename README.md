@@ -2,6 +2,14 @@
 
 A distribuição foi projetada para atender às necessidades de profissionais e estudantes de DevOps e Networking, oferecendo uma seleção abrangente e atualizada das melhores ferramentas disponíveis no mercado. Ao reunir todas essas ferramentas em um único local, a distribuição visa agilizar o processo de configuração e implantação de ambientes DevOps. Isso elimina a necessidade de procurar e instalar cada ferramenta individualmente, proporcionando conveniência e economizando tempo. Com uma variedade de ferramentas essenciais já integradas e prontas para uso, os usuários podem começar a trabalhar rapidamente em seus projetos DevOps, aumentando sua produtividade e eficiência.
 
+## Portabilidade
+
+Este é um projeto público e não deve conter paths absolutos válidos apenas na máquina de desenvolvimento.
+
+- Use defaults relativos ao repositório, volumes nomeados ou variáveis de ambiente.
+- Se um caminho variar por máquina, configure em `.env` local ou exporte no shell.
+- Não publique atalhos com `/mnt/...`, `/home/<usuario>/...` ou equivalentes no código.
+
 ## Makefile (build/push/run)
 
 Alvos principais:
